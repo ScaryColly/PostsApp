@@ -1,0 +1,47 @@
+### Health
+GET http://localhost:3000/
+
+### Create Post
+POST http://localhost:3000/post
+Content-Type: application/json
+
+{
+  "senderId": "u123",
+  "title": "Hello",
+  "content": "My first post"
+}
+
+### Get All Posts
+GET http://localhost:3000/post
+
+### Get Posts by Sender
+GET http://localhost:3000/post?sender=u123
+
+### Get Post by ID (paste from Create Post response)
+GET http://localhost:3000/post/<POST_ID>
+
+### Update Post
+PUT http://localhost:3000/post/<POST_ID>
+Content-Type: application/json
+
+{
+  "senderId": "u123",
+  "title": "Hello updated",
+  "content": "Updated content"
+}
+
+### Create Comment (use same POST_ID)
+POST http://localhost:3000/comments
+Content-Type: application/json
+
+{
+  "postId": "<POST_ID>",
+  "senderId": "u777",
+  "message": "Nice post!"
+}
+
+### Get Comments for a Specific Post
+GET http://localhost:3000/post/<POST_ID>/comments
+
+### Get All Comments
+GET http://localhost:3000/comments
