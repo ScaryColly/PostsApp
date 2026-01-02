@@ -20,6 +20,9 @@ GET http://localhost:3000/post?sender=u123
 ### Get Post by ID (paste from Create Post response)
 GET http://localhost:3000/post/<POST_ID>
 
+### Get All Comments For Specific Post
+GET http://localhost:3000/post/<POST_ID>/comments
+
 ### Update Post
 PUT http://localhost:3000/post/<POST_ID>
 Content-Type: application/json
@@ -30,7 +33,7 @@ Content-Type: application/json
   "content": "Updated content"
 }
 
-### Create Comment (use same POST_ID)
+### Create Comment
 POST http://localhost:3000/comments
 Content-Type: application/json
 
@@ -40,8 +43,21 @@ Content-Type: application/json
   "message": "Nice post!"
 }
 
-### Get Comments for a Specific Post
-GET http://localhost:3000/post/<POST_ID>/comments
-
 ### Get All Comments
 GET http://localhost:3000/comments
+
+### Get Comment By ID
+GET http://localhost:3000/comments/<COMMENT_ID>
+
+### Update Comment
+PUT http://localhost:3000/comments/<COMMENT_ID>
+Content-Type: application/json
+
+{
+  "postId": "<POST_ID>",
+  "senderId": "u777",
+  "message": "Updated comment text"
+}
+
+### Delete Comment
+DELETE http://localhost:3000/comments/<COMMENT_ID>
