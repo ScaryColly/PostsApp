@@ -1,26 +1,21 @@
 const express = require("express");
 const router = express.Router();
-const Post = require("../models/Post");
-const Comment = require("../models/Comment");
 
+const postController = require("../controllers/postController");
 
-
-
-router.get("/", async (req, res) => {
-    const { sender } = req.query;
-    const filter = sender ? { senderId: sender } : {};
-    const posts = await Post.find(filter).sort({ createdAt: -1 });
-    return res.json(posts);
+router.get("/", (req, res) => {
+  if (req.query.sender) {
+    return postController.getPostsBySender(req, res);
+  }
+  return postController.getAllPosts(req, res);
 });
 
-router.get("/:postId", async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.postId);
-        if (!post) return res.status(404).json({ error: "Post not found" });
-        return res.json(post);
-    } catch {
-        return res.status(400).json({ error: "Invalid post id" });
-    }
-});
+router.get("/:postId", postController.getPostById);
+
+router.get("/:postId/comments", postController.getCommentsByPost);
+
+router.post("/", postController.createPost);
+
+router.put("/:postId", postController.updatePost);
 
 module.exports = router;
