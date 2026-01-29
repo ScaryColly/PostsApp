@@ -15,7 +15,7 @@ const intApp = (): Promise<Express> => {
     app.use(express.json());
     app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
-    app.use("/post", postRoutes);
+    app.use("/posts", postRoutes);
     app.use("/comments", commentRoutes);
     app.use("/users", userRoutes);
 

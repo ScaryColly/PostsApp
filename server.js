@@ -9,7 +9,7 @@ const app = express();
 
 app.use(express.json());
 
-app.use("/post", postRoutes);
+app.use("/posts", postRoutes);
 app.use("/comments", commentRoutes);
 
 app.get("/", (req, res) => {
