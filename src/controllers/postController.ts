@@ -13,8 +13,8 @@ class PostController extends BaseController {
       const posts = await super.get(req);
       return res.json(posts);
     } catch (err) {
-      console.error("Error getting posts:", (err as Error).message);
-      return res.status(500).json({ error: "Failed to get posts" });
+      console.error("תקלה בשליפת הפוסטים:", (err as Error).message);
+      return res.status(500).json({ error: "לא הצלחנו להביא את הפוסטים" });
     }
   }
 
@@ -40,8 +40,8 @@ class PostController extends BaseController {
       });
       return res.json(posts);
     } catch (err) {
-      console.error("Error getting posts by sender:", (err as Error).message);
-      return res.status(500).json({ error: "Failed to get posts by sender" });
+      console.error("תקלה בשליפת הפוסטים לפי שליח:", (err as Error).message);
+      return res.status(500).json({ error: "לא הצלחנו להביא את הפוסטים לפי שליח" });
     }
   }
 
@@ -53,8 +53,8 @@ class PostController extends BaseController {
       if (!post) return res.status(404).json({ error: "Post not found" });
       return res.json(post);
     } catch (err) {
-      console.error("Error getting post by id:", (err as Error).message);
-      return res.status(400).json({ error: "Invalid post id" });
+      console.error("תקלה בשליפת הפוסט לפי ID:", (err as Error).message);
+      return res.status(400).json({ error: "תקלה בשליפת הפוסט לפי ID" });
     }
   }
 
@@ -88,8 +88,8 @@ class PostController extends BaseController {
       const post = await super.post(req);
       return res.status(201).json(post);
     } catch (err) {
-      console.error("Error creating post:", (err as Error).message);
-      return res.status(500).json({ error: "Failed to create post" });
+      console.error("תקלה ביצירת הפוסט:", (err as Error).message);
+      return res.status(500).json({ error: "לא הצלחנו ליצור את הפוסט" });
     }
   }
 
@@ -111,8 +111,8 @@ class PostController extends BaseController {
       if (!updated) return res.status(404).json({ error: "Post not found" });
       return res.json(updated);
     } catch (err) {
-      console.error("Error updating post:", (err as Error).message);
-      return res.status(500).json({ error: "Failed to update post" });
+      console.error("תקלה בעדכון הפוסט:", (err as Error).message);
+      return res.status(500).json({ error: "לא הצלחנו לעדכן את הפוסט" });
     }
   }
 }
