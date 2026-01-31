@@ -9,6 +9,7 @@
     "start": "npm run build && node dist/server.js",
     "dev": "nodemon",
     "test": "npm run build && jest --runInBand --detectOpenHandles --forceExit",
+    "test:coverage": "jest --coverage",
     "testpost": "npm run build && jest --runInBand --detectOpenHandles --forceExit dist/tests/posts.test.js"
   },
   "repository": {
