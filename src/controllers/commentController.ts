@@ -1,4 +1,3 @@
-// src/controllers/commentController.ts
 import { Request, Response } from "express";
 import BaseController from "./baseController";
 import Comment from "../models/Comment";
@@ -24,7 +23,7 @@ class CommentController extends BaseController {
 
   async getCommentById(req: Request, res: Response) {
     try {
-      req.params.id = req.params.commentId; 
+      req.params.id = req.params.commentId;
       const comment = await super.getById(req);
 
       if (!comment) return res.status(404).json({ error: "Comment not found" });
@@ -36,7 +35,7 @@ class CommentController extends BaseController {
 
   async updateComment(req: Request, res: Response) {
     try {
-      req.params.id = req.params.commentId; 
+      req.params.id = req.params.commentId;
       const updated = await super.put(req);
 
       if (!updated) return res.status(404).json({ error: "Comment not found" });
@@ -48,7 +47,7 @@ class CommentController extends BaseController {
 
   async deleteComment(req: Request, res: Response) {
     try {
-      req.params.id = req.params.commentId; 
+      req.params.id = req.params.commentId;
       const deleted = await super.del(req);
 
       if (!deleted) return res.status(404).json({ error: "Comment not found" });

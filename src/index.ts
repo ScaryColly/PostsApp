@@ -5,6 +5,7 @@ import { specs, swaggerUi } from "./swagger";
 
 import postRoutes from "./routes/posts";
 import commentRoutes from "./routes/comments";
+import userRoutes from "./routes/users";
 
 const intApp = (): Promise<Express> => {
   const app = express();
@@ -14,8 +15,9 @@ const intApp = (): Promise<Express> => {
     app.use(express.json());
     app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
-    app.use("/post", postRoutes);
+    app.use("/posts", postRoutes);
     app.use("/comments", commentRoutes);
+    app.use("/users", userRoutes);
 
     app.get("/", (_req: Request, res: Response) => {
       res.json({ ok: true, message: "API is running" });
