@@ -30,6 +30,7 @@ afterAll(async () => {
 });
 
 describe("Users API", () => {
+    // Registration tests
     describe("POST /users/register", () => {
         test("Register - missing fields => 400", async () => {
             const res = await request(app)
@@ -89,6 +90,7 @@ describe("Users API", () => {
         });
     });
 
+    // Login tests
     describe("POST /users/login", () => {
         test("Login - missing fields => 400", async () => {
             const res = await request(app)
@@ -127,11 +129,13 @@ describe("Users API", () => {
             expect(res.body.username).toBe(testUser.username);
             expect(res.body).not.toHaveProperty("password");
 
+            // Update tokens for further tests
             accessToken = res.body.accessToken;
             refreshToken = res.body.refreshToken;
         });
     });
 
+    // Get all users tests
     describe("GET /users", () => {
         test("Get all users - without auth => 200", async () => {
             const res = await request(app).get("/users");
@@ -162,6 +166,7 @@ describe("Users API", () => {
         });
     });
 
+    // Get user by ID tests
     describe("GET /users/:userId", () => {
         test("Get user - without auth => 200", async () => {
             const res = await request(app).get(`/users/${userId}`);
@@ -198,6 +203,7 @@ describe("Users API", () => {
         });
     });
 
+    // Update user tests
     describe("PUT /users/:userId", () => {
         test("Update user - without auth => 200", async () => {
             const res = await request(app)
@@ -233,6 +239,7 @@ describe("Users API", () => {
                 .send({ password: "newpassword123" });
             expect(res.statusCode).toBe(200);
 
+            // Verify password wasn't changed by trying to login with old password
             const loginRes = await request(app)
                 .post("/users/login")
                 .send({
@@ -251,6 +258,7 @@ describe("Users API", () => {
         });
     });
 
+    // Refresh token tests
     describe("POST /users/refresh", () => {
         test("Refresh token - missing token => 400", async () => {
             const res = await request(app).post("/users/refresh").send({});
@@ -275,11 +283,13 @@ describe("Users API", () => {
             expect(res.body).toHaveProperty("accessToken");
             expect(res.body).toHaveProperty("refreshToken");
 
+            // Update tokens for further tests
             accessToken = res.body.accessToken;
             refreshToken = res.body.refreshToken;
         });
     });
 
+    // Logout tests
     describe("POST /users/logout", () => {
         test("Logout - without auth => 401", async () => {
             const res = await request(app).post("/users/logout").send({});
@@ -303,6 +313,7 @@ describe("Users API", () => {
         });
     });
 
+    // Delete user tests
     describe("DELETE /users/:userId", () => {
         test("Delete user - first register a new user", async () => {
             const res = await request(app)
