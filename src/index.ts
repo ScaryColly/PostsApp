@@ -2,7 +2,6 @@ import "dotenv/config";
 import express, { type Express, type Request, type Response } from "express";
 import mongoose from "mongoose";
 import { specs, swaggerUi } from "./swagger";
-
 import postRoutes from "./routes/posts";
 import commentRoutes from "./routes/comments";
 import userRoutes from "./routes/users";
