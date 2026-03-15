@@ -6,7 +6,7 @@ POST http://localhost:3000/posts
 Content-Type: application/json
 
 {
-  "createdBy": "69b6dc42aae6f5acb5dd29da",
+  "createdBy": "69b6f0ae229ece9c7dda0883",
   "title": "Hello",
   "content": "My first post"
 }
@@ -16,7 +16,7 @@ POST http://localhost:3000/posts
 Content-Type: application/json
 
 {
-  "createdBy": "69b6dc42aae6f5acb5dd29da",
+  "createdBy": "69b6f0ae229ece9c7dda0883",
   "title": "Hello",
   "content": "My second post"
 }
