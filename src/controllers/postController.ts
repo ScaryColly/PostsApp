@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import BaseController from "./baseController";
-import { Post, IPost } from "../models/Post";
 import { Comment } from "../models/Comment";
+import { IPost, Post } from "../models/Post";
+import BaseController from "./baseController";
 
 class PostController extends BaseController {
   constructor() {
