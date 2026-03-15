@@ -1,23 +1,53 @@
 import request from "supertest";
 import intApp from "../index";
-
-import Post from "../models/Post";
-import Comment from "../models/Comment";
+import { Post } from "../models/Post";
+import { Comment } from "../models/Comment";
+import { User } from "../models/User";
 import type { Express } from "express";
-import { postsData } from "./testsUtils";
+
+type PostSeed = {
+  createdBy: string;
+  title: string;
+  content: string;
+  _id?: string;
+};
 
 let app: Express;
+let postsData: PostSeed[] = [];
+let user1Id: string;
 
 beforeAll(async () => {
   app = await intApp();
 
+  await User.deleteMany({});
   await Post.deleteMany({});
   await Comment.deleteMany({});
+
+  const user1 = await User.create({
+    username: "post_user_1",
+    email: "post_user_1@example.com",
+    password: "password123",
+  });
+  const user2 = await User.create({
+    username: "post_user_2",
+    email: "post_user_2@example.com",
+    password: "password123",
+  });
+
+  user1Id = String(user1._id);
+  const user2Id = String(user2._id);
+
+  postsData = [
+    { createdBy: user1Id, title: "Post A", content: "Content A" },
+    { createdBy: user1Id, title: "Post B", content: "Content B" },
+    { createdBy: user2Id, title: "Post C", content: "Content C" },
+  ];
 });
 
 afterAll(async () => {
   await Comment.deleteMany({});
   await Post.deleteMany({});
+  await User.deleteMany({});
 });
 
 describe("Posts API", () => {
@@ -36,7 +66,11 @@ describe("Posts API", () => {
     for (const post of postsData) {
       const res = await request(app).post("/posts").send(post);
       expect(res.statusCode).toBe(201);
-      expect(res.body).toMatchObject(post);
+      expect(res.body).toMatchObject({
+        createdBy: post.createdBy,
+        title: post.title,
+        content: post.content,
+      });
       post._id = res.body._id;
     }
   });
@@ -47,12 +81,14 @@ describe("Posts API", () => {
     expect(res.body.length).toBe(postsData.length);
   });
 
-  test("GET /posts?sender=user1 - filter", async () => {
-    const res = await request(app).get("/posts?sender=user1");
+  test("GET /posts?sender=<userId> - filter", async () => {
+    const res = await request(app).get(`/posts?sender=${user1Id}`);
     expect(res.statusCode).toBe(200);
     expect(res.body.length).toBe(2);
     for (const p of res.body) {
-      expect(p.senderId).toBe("user1");
+      const creatorId =
+        typeof p.createdBy === "string" ? p.createdBy : p.createdBy._id;
+      expect(String(creatorId)).toBe(user1Id);
     }
   });
 
@@ -66,12 +102,14 @@ describe("Posts API", () => {
   test("PUT /posts/:postId - update", async () => {
     const id = postsData[0]._id!;
     const updated = {
-      senderId: "user1",
+      createdBy: user1Id,
       title: "UPDATED",
       content: "UPDATED CONTENT",
     };
 
-    const res = await request(app).put("/posts/" + id).send(updated);
+    const res = await request(app)
+      .put("/posts/" + id)
+      .send(updated);
     expect(res.statusCode).toBe(200);
     expect(res.body.title).toBe(updated.title);
   });

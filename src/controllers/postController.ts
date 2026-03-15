@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
+import { Comment } from "../models/Comment";
+import { IPost, Post } from "../models/Post";
 import BaseController from "./baseController";
-import Post from "../models/Post";
-import Comment from "../models/Comment";
 
 class PostController extends BaseController {
   constructor() {
@@ -10,8 +10,17 @@ class PostController extends BaseController {
 
   async getAllPosts(req: Request, res: Response) {
     try {
-      const posts = await super.get(req);
-      return res.json(posts);
+      const posts = await this.model
+        .find(req.query || {})
+        .populate("createdBy", "username email")
+        .sort({ createdAt: -1 });
+      const transformedPosts = posts.map((post: IPost & { id: string }) => ({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        createdBy: post.createdBy,
+      }));
+      return res.json(transformedPosts);
     } catch (err) {
       console.error("תקלה בשליפת הפוסטים:", (err as Error).message);
       return res.status(500).json({ error: "לא הצלחנו להביא את הפוסטים" });
@@ -35,20 +44,26 @@ class PostController extends BaseController {
           .json({ error: "sender query parameter is required" });
       }
 
-      const posts = await this.model.find({ senderId: sender }).sort({
-        createdAt: -1,
-      });
+      const posts = await this.model
+        .find({ createdBy: sender })
+        .populate("createdBy", "username email")
+        .sort({
+          createdAt: -1,
+        });
       return res.json(posts);
     } catch (err) {
       console.error("תקלה בשליפת הפוסטים לפי שליח:", (err as Error).message);
-      return res.status(500).json({ error: "לא הצלחנו להביא את הפוסטים לפי שליח" });
+      return res
+        .status(500)
+        .json({ error: "לא הצלחנו להביא את הפוסטים לפי שליח" });
     }
   }
 
   async getPostById(req: Request, res: Response) {
     try {
-      req.params.id = req.params.postId;
-      const post = await super.getById(req);
+      const post = await this.model
+        .findById(req.params.postId)
+        .populate("createdBy", "username email");
 
       if (!post) return res.status(404).json({ error: "Post not found" });
       return res.json(post);
@@ -75,15 +90,15 @@ class PostController extends BaseController {
 
   async createPost(req: Request, res: Response) {
     try {
-      const { senderId, title, content } = req.body;
+      const { createdBy, title, content } = req.body;
 
-      if (!senderId || !title || !content) {
+      if (!createdBy || !title || !content) {
         return res
           .status(400)
-          .json({ error: "senderId, title and content are required" });
+          .json({ error: "createdBy, title and content are required" });
       }
 
-      req.body = { senderId, title, content };
+      req.body = { createdBy, title, content };
 
       const post = await super.post(req);
       return res.status(201).json(post);
@@ -95,16 +110,16 @@ class PostController extends BaseController {
 
   async updatePost(req: Request, res: Response) {
     try {
-      const { senderId, title, content } = req.body;
+      const { createdBy, title, content } = req.body;
 
-      if (!senderId || !title || !content) {
+      if (!createdBy || !title || !content) {
         return res
           .status(400)
-          .json({ error: "senderId, title and content are required" });
+          .json({ error: "createdBy, title and content are required" });
       }
 
       req.params.id = req.params.postId;
-      req.body = { senderId, title, content };
+      req.body = { createdBy, title, content };
 
       const updated = await super.put(req);
 
