@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import BaseController from "./baseController";
-import Comment from "../models/Comment";
+import { Comment } from "../models/Comment";
 
 class CommentController extends BaseController {
   constructor() {
