@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import BaseController from "./baseController";
-import Post from "../models/Post";
-import Comment from "../models/Comment";
+import { Post, IPost } from "../models/Post";
+import { Comment } from "../models/Comment";
 
 class PostController extends BaseController {
   constructor() {
@@ -10,8 +10,16 @@ class PostController extends BaseController {
 
   async getAllPosts(req: Request, res: Response) {
     try {
-      const posts = await super.get(req);
-      return res.json(posts);
+      const posts = await this.model
+        .find(req.query || {})
+        .sort({ createdAt: -1 });
+      const transformedPosts = posts.map((post: IPost & { id: string }) => ({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        createdBy: post.senderId,
+      }));
+      return res.json(transformedPosts);
     } catch (err) {
       console.error("תקלה בשליפת הפוסטים:", (err as Error).message);
       return res.status(500).json({ error: "לא הצלחנו להביא את הפוסטים" });
@@ -41,7 +49,9 @@ class PostController extends BaseController {
       return res.json(posts);
     } catch (err) {
       console.error("תקלה בשליפת הפוסטים לפי שליח:", (err as Error).message);
-      return res.status(500).json({ error: "לא הצלחנו להביא את הפוסטים לפי שליח" });
+      return res
+        .status(500)
+        .json({ error: "לא הצלחנו להביא את הפוסטים לפי שליח" });
     }
   }
 
