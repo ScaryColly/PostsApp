@@ -2,33 +2,31 @@
 GET http://localhost:3000/
 
 ### Create Post
-POST http://localhost:3000/post
+POST http://localhost:3000/posts
 Content-Type: application/json
 
 {
-  "senderId": "u123",
+  "createdBy": "69b6db46583e445c0c6b02a9",
   "title": "Hello",
-  "content": "My first post"
+  "content": "My second post"
 }
 
 ### Get All Posts
-GET http://localhost:3000/post
+GET http://localhost:3000/posts
 
 ### Get Posts by Sender
-GET http://localhost:3000/post?sender=u123
+GET http://localhost:3000/posts?sender=<USER_ID>
 
-### Get Post by ID (paste from Create Post response)
-GET http://localhost:3000/post/<POST_ID>
 
 ### Get All Comments For Specific Post
-GET http://localhost:3000/post/<POST_ID>/comments
+GET http://localhost:3000/posts/<POST_ID>/comments
 
 ### Update Post
-PUT http://localhost:3000/post/<POST_ID>
+PUT http://localhost:3000/posts/<POST_ID>
 Content-Type: application/json
 
 {
-  "senderId": "u123",
+  "createdBy": "<USER_ID>",
   "title": "Hello updated",
   "content": "Updated content"
 }
@@ -61,3 +59,13 @@ Content-Type: application/json
 
 ### Delete Comment
 DELETE http://localhost:3000/comments/<COMMENT_ID>
+
+### Register User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "email": "newuser@example.com",
+  "password": "password123"
+}

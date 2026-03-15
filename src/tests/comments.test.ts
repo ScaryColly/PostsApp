@@ -1,7 +1,6 @@
 import request from "supertest";
 import intApp from "../index";
-
-import Comment from "../models/Comment";
+import { Comment } from "../models/Comment";
 import type { Express } from "express";
 import { commentsData } from "./testsUtils";
 
@@ -53,7 +52,9 @@ describe("Comments API", () => {
       message: "UPDATED MESSAGE",
     };
 
-    const res = await request(app).put("/comments/" + id).send(updated);
+    const res = await request(app)
+      .put("/comments/" + id)
+      .send(updated);
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe(updated.message);
   });
