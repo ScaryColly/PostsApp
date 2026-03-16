@@ -114,6 +114,17 @@ describe("Posts API", () => {
     expect(res.body.title).toBe(updated.title);
   });
 
+  test("DELETE /posts/:postId - delete", async () => {
+    const id = postsData[2]._id!;
+
+    const res = await request(app).delete("/posts/" + id);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+
+    const deletedPost = await Post.findById(id);
+    expect(deletedPost).toBeNull();
+  });
+
   test("GET /posts/:postId/comments - empty", async () => {
     const postId = postsData[1]._id!;
     const res = await request(app).get(`/posts/${postId}/comments`);
