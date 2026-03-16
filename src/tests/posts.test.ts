@@ -1,9 +1,9 @@
+import type { Express } from "express";
 import request from "supertest";
 import intApp from "../index";
-import { Post } from "../models/Post";
 import { Comment } from "../models/Comment";
+import { Post } from "../models/Post";
 import { User } from "../models/User";
-import type { Express } from "express";
 
 type PostSeed = {
   createdBy: string;
@@ -127,13 +127,13 @@ describe("Posts API", () => {
     await Comment.collection.insertMany([
       {
         postId,
-        senderId: "user1",
+        createdBy: user1Id,
         message: "first",
         createdAt: new Date("2020-01-01"),
       },
       {
         postId,
-        senderId: "user1",
+        createdBy: user1Id,
         message: "second",
         createdAt: new Date("2021-01-01"),
       },
@@ -147,5 +147,9 @@ describe("Posts API", () => {
     expect(res.body.length).toBe(2);
     expect(res.body[0].message).toBe("second");
     expect(res.body[1].message).toBe("first");
+    expect(typeof res.body[0].createdBy).toBe("object");
+    expect(res.body[0].createdBy._id).toBe(user1Id);
+    expect(res.body[0].createdBy.username).toBe("post_user_1");
+    expect(res.body[0].createdBy.password).toBeUndefined();
   });
 });

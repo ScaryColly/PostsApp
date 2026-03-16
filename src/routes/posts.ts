@@ -24,7 +24,7 @@ import postController from "../controllers/postController";
  *         schema:
  *           type: string
  *         required: false
- *         description: Filter posts by senderId
+ *         description: Filter posts by createdBy
  *         example: "user1"
  *     responses:
  *       200:
@@ -96,7 +96,10 @@ router.get("/:postId", postController.getPostById.bind(postController));
  *       500:
  *         description: Failed to get comments
  */
-router.get("/:postId/comments", postController.getCommentsByPost.bind(postController));
+router.get(
+  "/:postId/comments",
+  postController.getCommentsByPost.bind(postController),
+);
 
 /**
  * @swagger
@@ -112,9 +115,9 @@ router.get("/:postId/comments", postController.getCommentsByPost.bind(postContro
  *         application/json:
  *           schema:
  *             type: object
- *             required: [senderId, title, content]
+ *             required: [createdBy, title, content]
  *             properties:
- *               senderId:
+ *               createdBy:
  *                 type: string
  *                 example: "user1"
  *               title:
@@ -131,7 +134,7 @@ router.get("/:postId/comments", postController.getCommentsByPost.bind(postContro
  *             schema:
  *               $ref: '#/components/schemas/Post'
  *       400:
- *         description: senderId, title and content are required
+ *         description: createdBy, title and content are required
  *       500:
  *         description: Failed to create post
  */
@@ -158,9 +161,9 @@ router.post("/", postController.createPost.bind(postController));
  *         application/json:
  *           schema:
  *             type: object
- *             required: [senderId, title, content]
+ *             required: [createdBy, title, content]
  *             properties:
- *               senderId:
+ *               createdBy:
  *                 type: string
  *               title:
  *                 type: string
@@ -174,7 +177,7 @@ router.post("/", postController.createPost.bind(postController));
  *             schema:
  *               $ref: '#/components/schemas/Post'
  *       400:
- *         description: senderId, title and content are required
+ *         description: createdBy, title and content are required
  *       404:
  *         description: Post not found
  *       500:

@@ -1,6 +1,6 @@
 import postController from "../controllers/postController";
-import { Post } from "../models/Post";
 import { Comment } from "../models/Comment";
+import { Post } from "../models/Post";
 
 const mockRes = () => {
   const res: any = {};
@@ -51,10 +51,11 @@ describe("PostController unit tests", () => {
   test("getCommentsByPost - error => 500", async () => {
     const req: any = { params: { postId: "p1" } };
     const res = mockRes();
-    const collection: any = (Comment as any).collection;
-    jest.spyOn(collection, "find").mockImplementation(() => {
-      throw new Error("boom");
-    });
+    jest.spyOn(Comment, "find").mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        sort: jest.fn().mockRejectedValue(new Error("boom")),
+      }),
+    } as any);
     await (postController as any).getCommentsByPost(req, res);
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: "Failed to get comments" });

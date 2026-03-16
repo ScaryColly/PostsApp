@@ -1,7 +1,7 @@
+import type { Express } from "express";
 import request from "supertest";
 import intApp from "../index";
 import { Comment } from "../models/Comment";
-import type { Express } from "express";
 import { commentsData } from "./testsUtils";
 
 let app: Express;
@@ -48,7 +48,7 @@ describe("Comments API", () => {
     const id = commentsData[0]._id!;
     const updated = {
       postId: commentsData[0].postId,
-      senderId: commentsData[0].senderId,
+      createdBy: commentsData[0].createdBy,
       message: "UPDATED MESSAGE",
     };
 
