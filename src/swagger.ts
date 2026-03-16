@@ -58,10 +58,13 @@ const options: swaggerJsdoc.Options = {
         },
         Post: {
           type: "object",
-          required: ["senderId", "title", "content"],
+          required: ["createdBy", "title", "content"],
           properties: {
             _id: { type: "string", example: "69665a97012d745083da47e3" },
-            senderId: { type: "string", example: "user1" },
+            createdBy: {
+              type: "string",
+              example: "507f1f77bcf86cd799439011",
+            },
             title: { type: "string", example: "Post A" },
             content: { type: "string", example: "Content A" },
             createdAt: { type: "string", format: "date-time" },
@@ -70,11 +73,14 @@ const options: swaggerJsdoc.Options = {
         },
         Comment: {
           type: "object",
-          required: ["postId", "senderId", "message"],
+          required: ["postId", "createdBy", "message"],
           properties: {
             _id: { type: "string", example: "69665aa7012d745083da47e7" },
             postId: { type: "string", example: "69665a97012d745083da47e4" },
-            senderId: { type: "string", example: "user1" },
+            createdBy: {
+              type: "string",
+              example: "507f1f77bcf86cd799439011",
+            },
             message: { type: "string", example: "Nice post!" },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },

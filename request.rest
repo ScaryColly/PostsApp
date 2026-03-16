@@ -47,7 +47,7 @@ Content-Type: application/json
 
 {
   "postId": "<POST_ID>",
-  "senderId": "u777",
+  "createdBy": "507f1f77bcf86cd799439011",
   "message": "Nice post!"
 }
 
@@ -63,7 +63,7 @@ Content-Type: application/json
 
 {
   "postId": "<POST_ID>",
-  "senderId": "u777",
+  "createdBy": "507f1f77bcf86cd799439011",
   "message": "Updated comment text"
 }
 
@@ -88,4 +88,84 @@ Content-Type: application/json
   "username": "anotheruser",
   "email": "anotheruser@example.com",
   "password": "password1123"
+}
+
+### Register Third User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "thirduser",
+  "email": "thirduser@example.com",
+  "password": "password11243"
+}
+
+### Register Fourth User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "fourthuser",
+  "email": "fourthuser@example.com",
+  "password": "password11243"
+}
+
+### Register Fifth User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "fifthuser",
+  "email": "fifthuser@example.com",
+  "password": "password11243"
+}
+
+### Register Sixth User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "sixthuser",
+  "email": "sixthuser@example.com",
+  "password": "password11243"
+}
+
+### Register Seventh User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "seventhuser",
+  "email": "seventhuser@example.com",
+  "password": "password11243"
+}
+
+### Register Eighth User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "eighthuser",
+  "email": "eighthuser@example.com",
+  "password": "password11243"
+}
+
+### Register Ninth User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "ninthuser",
+  "email": "ninthuser@example.com",
+  "password": "password11243"
+}
+
+### Register Tenth User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "tenthuser",
+  "email": "tenthuser@example.com",
+  "password": "password11243"
 }
