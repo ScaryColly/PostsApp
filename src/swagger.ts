@@ -7,11 +7,7 @@ const options: swaggerJsdoc.Options = {
     info: {
       title: "Posts & Comments REST API",
       version: "1.0.0",
-      description: "A REST API for managing posts and comments",
-      contact: {
-        name: "Your Name",
-        email: "developer@example.com",
-      },
+      description: "A REST API for managing users, posts and comments",
     },
     servers: [
       {
@@ -25,65 +21,114 @@ const options: swaggerJsdoc.Options = {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
-          description: "JWT Authorization header using the Bearer scheme",
         },
       },
       schemas: {
         User: {
           type: "object",
-          required: ["username", "email"],
           properties: {
-            _id: { type: "string", example: "69665a97012d745083da47e3" },
-            username: { type: "string", example: "john_doe", minLength: 3 },
+            _id: { type: "string", example: "67d1234567890abcdef1234" },
+            username: { type: "string", example: "john_doe" },
             email: { type: "string", example: "john@example.com" },
+            profileImage: {
+              type: "string",
+              nullable: true,
+              example: "/uploads/profiles/1742055000-avatar.png",
+            },
+            authProvider: {
+              type: "string",
+              example: "local",
+              enum: ["local", "google"],
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },
         },
+
         AuthResponse: {
           type: "object",
           properties: {
-            _id: { type: "string", example: "69665a97012d745083da47e3" },
+            _id: { type: "string", example: "67d1234567890abcdef1234" },
             username: { type: "string", example: "john_doe" },
             email: { type: "string", example: "john@example.com" },
+            profileImage: {
+              type: "string",
+              nullable: true,
+              example: "/uploads/profiles/1742055000-avatar.png",
+            },
+            authProvider: {
+              type: "string",
+              example: "local",
+              enum: ["local", "google"],
+            },
             accessToken: {
               type: "string",
-              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access.token",
             },
             refreshToken: {
               type: "string",
-              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.token",
             },
           },
         },
+
+        RefreshTokenRequest: {
+          type: "object",
+          required: ["refreshToken"],
+          properties: {
+            refreshToken: {
+              type: "string",
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.token",
+            },
+          },
+        },
+
+        GoogleAuthRequest: {
+          type: "object",
+          required: ["idToken"],
+          properties: {
+            idToken: {
+              type: "string",
+              example: "google-id-token",
+            },
+          },
+        },
+
+        UpdateCurrentUserFormData: {
+          type: "object",
+          properties: {
+            username: {
+              type: "string",
+              example: "new_username",
+            },
+            profileImage: {
+              type: "string",
+              format: "binary",
+            },
+          },
+        },
+
         Post: {
           type: "object",
-          required: ["senderId", "title", "content"],
           properties: {
-            _id: { type: "string", example: "69665a97012d745083da47e3" },
-            senderId: { type: "string", example: "user1" },
-            title: { type: "string", example: "Post A" },
-            content: { type: "string", example: "Content A" },
+            _id: { type: "string" },
+            title: { type: "string", example: "My first post" },
+            content: { type: "string", example: "Hello world" },
+            createdBy: {
+              oneOf: [
+                { type: "string", example: "67d1234567890abcdef1234" },
+                { $ref: "#/components/schemas/User" },
+              ],
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },
         },
-        Comment: {
-          type: "object",
-          required: ["postId", "senderId", "message"],
-          properties: {
-            _id: { type: "string", example: "69665aa7012d745083da47e7" },
-            postId: { type: "string", example: "69665a97012d745083da47e4" },
-            senderId: { type: "string", example: "user1" },
-            message: { type: "string", example: "Nice post!" },
-            createdAt: { type: "string", format: "date-time" },
-            updatedAt: { type: "string", format: "date-time" },
-          },
-        },
+
         Error: {
           type: "object",
           properties: {
-            error: { type: "string", example: "Invalid post id" },
+            error: { type: "string", example: "Invalid request" },
           },
         },
       },

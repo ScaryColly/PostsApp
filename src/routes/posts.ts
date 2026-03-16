@@ -14,18 +14,18 @@ import postController from "../controllers/postController";
  * @swagger
  * /posts:
  *   get:
- *     summary: Get all posts (or filter by sender)
- *     description: Retrieve all posts. If sender query exists, returns only posts for that sender.
+ *     summary: Get all posts
+ *     description: Retrieve all posts. If createdBy query exists, returns only posts for that user.
  *     tags: [Posts]
  *     security: []
  *     parameters:
  *       - in: query
- *         name: sender
+ *         name: createdBy
  *         schema:
  *           type: string
  *         required: false
- *         description: Filter posts by senderId
- *         example: "user1"
+ *         description: Filter posts by user ID
+ *         example: "67d5c8d2f1a2b3c4d5e6f789"
  *     responses:
  *       200:
  *         description: Successfully retrieved posts
@@ -45,7 +45,7 @@ router.get("/", postController.getPosts.bind(postController));
  * /posts/{postId}:
  *   get:
  *     summary: Get post by ID
- *     description: Retrieve a specific post by its ID. No authentication required.
+ *     description: Retrieve a specific post by its ID.
  *     tags: [Posts]
  *     security: []
  *     parameters:
@@ -55,6 +55,7 @@ router.get("/", postController.getPosts.bind(postController));
  *         schema:
  *           type: string
  *         description: Post ID
+ *         example: "67d5c8d2f1a2b3c4d5e6f123"
  *     responses:
  *       200:
  *         description: Successfully retrieved post
@@ -84,6 +85,7 @@ router.get("/:postId", postController.getPostById.bind(postController));
  *         schema:
  *           type: string
  *         description: Post ID
+ *         example: "67d5c8d2f1a2b3c4d5e6f123"
  *     responses:
  *       200:
  *         description: Successfully retrieved comments
@@ -103,7 +105,7 @@ router.get("/:postId/comments", postController.getCommentsByPost.bind(postContro
  * /posts:
  *   post:
  *     summary: Create a new post
- *     description: Create a new post. No authentication required.
+ *     description: Create a new post.
  *     tags: [Posts]
  *     security: []
  *     requestBody:
@@ -112,11 +114,15 @@ router.get("/:postId/comments", postController.getCommentsByPost.bind(postContro
  *         application/json:
  *           schema:
  *             type: object
- *             required: [senderId, title, content]
+ *             required:
+ *               - createdBy
+ *               - title
+ *               - content
  *             properties:
- *               senderId:
+ *               createdBy:
  *                 type: string
- *                 example: "user1"
+ *                 description: User ID of the post creator
+ *                 example: "67d5c8d2f1a2b3c4d5e6f789"
  *               title:
  *                 type: string
  *                 example: "Post A"
@@ -131,7 +137,7 @@ router.get("/:postId/comments", postController.getCommentsByPost.bind(postContro
  *             schema:
  *               $ref: '#/components/schemas/Post'
  *       400:
- *         description: senderId, title and content are required
+ *         description: createdBy, title and content are required
  *       500:
  *         description: Failed to create post
  */
@@ -142,7 +148,7 @@ router.post("/", postController.createPost.bind(postController));
  * /posts/{postId}:
  *   put:
  *     summary: Update a post
- *     description: Update an existing post by ID. No authentication required.
+ *     description: Update an existing post by ID.
  *     tags: [Posts]
  *     security: []
  *     parameters:
@@ -152,20 +158,28 @@ router.post("/", postController.createPost.bind(postController));
  *         schema:
  *           type: string
  *         description: Post ID
+ *         example: "67d5c8d2f1a2b3c4d5e6f123"
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [senderId, title, content]
+ *             required:
+ *               - createdBy
+ *               - title
+ *               - content
  *             properties:
- *               senderId:
+ *               createdBy:
  *                 type: string
+ *                 description: User ID of the post creator
+ *                 example: "67d5c8d2f1a2b3c4d5e6f789"
  *               title:
  *                 type: string
+ *                 example: "Updated title"
  *               content:
  *                 type: string
+ *                 example: "Updated content"
  *     responses:
  *       200:
  *         description: Post successfully updated
@@ -174,7 +188,7 @@ router.post("/", postController.createPost.bind(postController));
  *             schema:
  *               $ref: '#/components/schemas/Post'
  *       400:
- *         description: senderId, title and content are required
+ *         description: createdBy, title and content are required
  *       404:
  *         description: Post not found
  *       500:
