@@ -27,9 +27,7 @@ describe("PostController unit tests", () => {
   test("getPostById - not found => 404", async () => {
     const req: any = { params: { postId: "abc" } };
     const res = mockRes();
-    jest.spyOn(Post, "findById").mockReturnValue({
-      populate: jest.fn().mockResolvedValue(null),
-    } as any);
+    jest.spyOn(Post, "findById").mockResolvedValue(null as any);
     await (postController as any).getPostById(req, res);
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ error: "Post not found" });
@@ -38,9 +36,7 @@ describe("PostController unit tests", () => {
   test("getPostById - error => 400", async () => {
     const req: any = { params: { postId: "abc" } };
     const res = mockRes();
-    jest.spyOn(Post, "findById").mockReturnValue({
-      populate: jest.fn().mockRejectedValue(new Error("boom")),
-    } as any);
+    jest.spyOn(Post, "findById").mockRejectedValue(new Error("boom"));
     await (postController as any).getPostById(req, res);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
@@ -52,9 +48,7 @@ describe("PostController unit tests", () => {
     const req: any = { params: { postId: "p1" } };
     const res = mockRes();
     jest.spyOn(Comment, "find").mockReturnValue({
-      populate: jest.fn().mockReturnValue({
-        sort: jest.fn().mockRejectedValue(new Error("boom")),
-      }),
+      sort: jest.fn().mockRejectedValue(new Error("boom")),
     } as any);
     await (postController as any).getCommentsByPost(req, res);
     expect(res.status).toHaveBeenCalledWith(500);

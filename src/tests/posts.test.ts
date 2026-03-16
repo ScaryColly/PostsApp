@@ -158,9 +158,6 @@ describe("Posts API", () => {
     expect(res.body.length).toBe(2);
     expect(res.body[0].message).toBe("second");
     expect(res.body[1].message).toBe("first");
-    expect(typeof res.body[0].createdBy).toBe("object");
-    expect(res.body[0].createdBy._id).toBe(user1Id);
-    expect(res.body[0].createdBy.username).toBe("post_user_1");
-    expect(res.body[0].createdBy.password).toBeUndefined();
+    expect(String(res.body[0].createdBy)).toBe(user1Id);
   });
 });
