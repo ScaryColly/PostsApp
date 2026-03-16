@@ -1,6 +1,6 @@
 import postController from "../controllers/postController";
-import { Post } from "../models/Post";
 import { Comment } from "../models/Comment";
+import { Post } from "../models/Post";
 
 const mockRes = () => {
   const res: any = {};
@@ -107,6 +107,24 @@ describe("PostController unit tests", () => {
     expect(res.json).toHaveBeenCalledWith({
       error: "לא הצלחנו לעדכן את הפוסט",
     });
+  });
+
+  test("deletePost - not found => 404", async () => {
+    const req: any = { params: { postId: "x" } };
+    const res = mockRes();
+    jest.spyOn(Post, "findByIdAndDelete").mockResolvedValue(null as any);
+    await (postController as any).deletePost(req, res);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: "Post not found" });
+  });
+
+  test("deletePost - error => 400", async () => {
+    const req: any = { params: { postId: "x" } };
+    const res = mockRes();
+    jest.spyOn(Post, "findByIdAndDelete").mockRejectedValue(new Error("boom"));
+    await (postController as any).deletePost(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Invalid post id" });
   });
 
   test("getAllPosts - error => 500", async () => {
