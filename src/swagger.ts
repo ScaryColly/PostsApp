@@ -110,16 +110,35 @@ const options: swaggerJsdoc.Options = {
 
         Post: {
           type: "object",
+          required: ["createdBy", "title", "content"],
           properties: {
-            _id: { type: "string" },
-            title: { type: "string", example: "My first post" },
-            content: { type: "string", example: "Hello world" },
+            _id: { type: "string", example: "69665a97012d745083da47e3" },
             createdBy: {
               oneOf: [
-                { type: "string", example: "67d1234567890abcdef1234" },
+                { type: "string", example: "507f1f77bcf86cd799439011" },
                 { $ref: "#/components/schemas/User" },
               ],
             },
+            title: { type: "string", example: "Post A" },
+            content: { type: "string", example: "Content A" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+
+        Comment: {
+          type: "object",
+          required: ["postId", "createdBy", "message"],
+          properties: {
+            _id: { type: "string", example: "69665aa7012d745083da47e7" },
+            postId: { type: "string", example: "69665a97012d745083da47e4" },
+            createdBy: {
+              oneOf: [
+                { type: "string", example: "507f1f77bcf86cd799439011" },
+                { $ref: "#/components/schemas/User" },
+              ],
+            },
+            message: { type: "string", example: "Nice post!" },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },

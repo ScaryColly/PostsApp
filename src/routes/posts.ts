@@ -24,8 +24,8 @@ import postController from "../controllers/postController";
  *         schema:
  *           type: string
  *         required: false
- *         description: Filter posts by user ID
- *         example: "67d5c8d2f1a2b3c4d5e6f789"
+ *         description: Filter posts by createdBy
+ *         example: "user1"
  *     responses:
  *       200:
  *         description: Successfully retrieved posts
@@ -117,10 +117,7 @@ router.get(
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - createdBy
- *               - title
- *               - content
+ *             required: [createdBy, title, content]
  *             properties:
  *               createdBy:
  *                 type: string
@@ -168,10 +165,7 @@ router.post("/", postController.createPost.bind(postController));
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - createdBy
- *               - title
- *               - content
+ *             required: [createdBy, title, content]
  *             properties:
  *               createdBy:
  *                 type: string
