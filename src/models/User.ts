@@ -1,11 +1,16 @@
 import mongoose, { Schema, type Model, type Document } from "mongoose";
 import bcrypt from "bcrypt";
 
+export type AuthProvider = "local" | "google";
+
 export interface IUser extends Document {
   username: string;
   email: string;
-  password: string;
-  refreshTokens?: string[];
+  password?: string;
+  profileImage?: string;
+  authProvider: AuthProvider;
+  providerId?: string;
+  refreshTokens: string[];
   comparePassword(password: string): Promise<boolean>;
 }
 
@@ -22,12 +27,29 @@ const UserSchema = new Schema<IUser>(
       type: String,
       required: true,
       unique: true,
+      trim: true,
+      lowercase: true,
       match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     },
     password: {
       type: String,
-      required: true,
+      required: function (this: IUser) {
+        return this.authProvider === "local";
+      },
       minlength: 6,
+    },
+    profileImage: {
+      type: String,
+      default: null,
+    },
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
+    providerId: {
+      type: String,
+      default: null,
     },
     refreshTokens: {
       type: [String],
@@ -38,21 +60,21 @@ const UserSchema = new Schema<IUser>(
 );
 
 UserSchema.pre<IUser>("save", async function () {
-  if (!this.isModified("password")) {
+  if (!this.isModified("password") || !this.password) {
     return;
   }
 
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-  } catch (err) {
-    throw err;
-  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 UserSchema.methods.comparePassword = async function (
   password: string,
 ): Promise<boolean> {
+  if (!this.password) {
+    return false;
+  }
+
   return bcrypt.compare(password, this.password);
 };
 

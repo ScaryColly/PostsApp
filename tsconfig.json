@@ -6,6 +6,7 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
+    "types": ["node", "jest"],
     "rootDir": "src",
     "strict": true,
     "skipLibCheck": true
