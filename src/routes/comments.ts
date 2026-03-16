@@ -57,7 +57,10 @@ router.get("/", commentController.getComments.bind(commentController));
  *       400:
  *         description: Invalid comment id
  */
-router.get("/:commentId", commentController.getCommentById.bind(commentController));
+router.get(
+  "/:commentId",
+  commentController.getCommentById.bind(commentController),
+);
 
 /**
  * @swagger
@@ -73,14 +76,14 @@ router.get("/:commentId", commentController.getCommentById.bind(commentControlle
  *         application/json:
  *           schema:
  *             type: object
- *             required: [postId, senderId, message]
+ *             required: [postId, createdBy, message]
  *             properties:
  *               postId:
  *                 type: string
  *                 example: "69665a97012d745083da47e4"
- *               senderId:
+ *               createdBy:
  *                 type: string
- *                 example: "user1"
+ *                 example: "507f1f77bcf86cd799439011"
  *               message:
  *                 type: string
  *                 example: "Nice post!"
@@ -120,7 +123,7 @@ router.post("/", commentController.createComment.bind(commentController));
  *             properties:
  *               postId:
  *                 type: string
- *               senderId:
+ *               createdBy:
  *                 type: string
  *               message:
  *                 type: string
@@ -136,7 +139,10 @@ router.post("/", commentController.createComment.bind(commentController));
  *       400:
  *         description: Validation / bad request
  */
-router.put("/:commentId", commentController.updateComment.bind(commentController));
+router.put(
+  "/:commentId",
+  commentController.updateComment.bind(commentController),
+);
 
 /**
  * @swagger
@@ -169,6 +175,9 @@ router.put("/:commentId", commentController.updateComment.bind(commentController
  *       400:
  *         description: Invalid comment id
  */
-router.delete("/:commentId", commentController.deleteComment.bind(commentController));
+router.delete(
+  "/:commentId",
+  commentController.deleteComment.bind(commentController),
+);
 
 export default router;
