@@ -1,16 +1,15 @@
 import mongoose, { Schema, type Model } from "mongoose";
-import { User } from "./User";
 
 export interface IComment {
   postId: string;
-  createdBy: typeof User;
+  createdBy: string;
   message: string;
 }
 
 const CommentSchema = new Schema<IComment>(
   {
     postId: { type: String, required: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: { type: String, required: true },
     message: { type: String, required: true },
   },
   { timestamps: true },
