@@ -121,8 +121,36 @@ const options: swaggerJsdoc.Options = {
             },
             title: { type: "string", example: "Post A" },
             content: { type: "string", example: "Content A" },
+            image: {
+              type: "string",
+              nullable: true,
+              example: "/uploads/posts/1742055000-post.png",
+            },
+            likes: {
+              type: "array",
+              items: { type: "string", example: "507f1f77bcf86cd799439011" },
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+
+        PostLikeRequest: {
+          type: "object",
+          required: ["userId"],
+          properties: {
+            userId: { type: "string", example: "507f1f77bcf86cd799439011" },
+          },
+        },
+
+        PostLikeResponse: {
+          type: "object",
+          properties: {
+            ok: { type: "boolean", example: true },
+            likes: {
+              type: "array",
+              items: { type: "string", example: "507f1f77bcf86cd799439011" },
+            },
           },
         },
 

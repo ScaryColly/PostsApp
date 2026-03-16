@@ -14,13 +14,13 @@ afterEach(() => {
 });
 
 describe("PostController unit tests", () => {
-  test("getPostsBySender - missing sender => 400", async () => {
+  test("getPostsByCreatedBy - missing createdBy => 400", async () => {
     const req: any = { query: {} };
     const res = mockRes();
-    await (postController as any).getPostsBySender(req, res);
+    await (postController as any).getPostsByCreatedBy(req, res);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
-      error: "sender query parameter is required",
+      error: "createdBy query parameter is required",
     });
   });
 
@@ -55,6 +55,58 @@ describe("PostController unit tests", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Failed to get comments" });
   });
 
+  test("likePost - missing user id => 400", async () => {
+    const req: any = { params: { postId: "p1" }, body: {} };
+    const res = mockRes();
+    await (postController as any).likePost(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "userId is required" });
+  });
+
+  test("likePost - post not found => 404", async () => {
+    const req: any = { params: { postId: "p1" }, body: { userId: "u1" } };
+    const res = mockRes();
+    jest.spyOn(Post, "findById").mockResolvedValue(null as any);
+    await (postController as any).likePost(req, res);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: "Post not found" });
+  });
+
+  test("unlikePost - missing user id => 400", async () => {
+    const req: any = { params: { postId: "p1" }, body: {} };
+    const res = mockRes();
+    await (postController as any).unlikePost(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "userId is required" });
+  });
+
+  test("unlikePost - post not found => 404", async () => {
+    const req: any = { params: { postId: "p1" }, body: { userId: "u1" } };
+    const res = mockRes();
+    jest.spyOn(Post, "findById").mockResolvedValue(null as any);
+    await (postController as any).unlikePost(req, res);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: "Post not found" });
+  });
+
+  test("likePost - invalid post id => 400", async () => {
+    const req: any = { params: { postId: "p1" }, body: { userId: "u1" } };
+    const res = mockRes();
+    jest.spyOn(Post, "findById").mockRejectedValue(new Error("boom"));
+    await (postController as any).likePost(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Invalid post id" });
+  });
+
+  test("unlikePost - invalid post id => 400", async () => {
+    const req: any = { params: { postId: "p1" }, body: { userId: "u1" } };
+    const res = mockRes();
+    jest.spyOn(Post, "findById").mockRejectedValue(new Error("boom"));
+    await (postController as any).unlikePost(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Invalid post id" });
+  });
+
   test("createPost - error => 500", async () => {
     const req: any = {
       body: { createdBy: "507f1f77bcf86cd799439011", title: "t", content: "c" },
@@ -84,7 +136,7 @@ describe("PostController unit tests", () => {
       body: { createdBy: "507f1f77bcf86cd799439011", title: "t", content: "c" },
     };
     const res = mockRes();
-    jest.spyOn(Post, "findByIdAndUpdate").mockResolvedValue(null as any);
+    jest.spyOn(Post, "findById").mockResolvedValue(null as any);
     await (postController as any).updatePost(req, res);
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ error: "Post not found" });
@@ -96,7 +148,7 @@ describe("PostController unit tests", () => {
       body: { createdBy: "507f1f77bcf86cd799439011", title: "t", content: "c" },
     };
     const res = mockRes();
-    jest.spyOn(Post, "findByIdAndUpdate").mockRejectedValue(new Error("db"));
+    jest.spyOn(Post, "findById").mockRejectedValue(new Error("db"));
     await (postController as any).updatePost(req, res);
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({
@@ -135,13 +187,13 @@ describe("PostController unit tests", () => {
     });
   });
 
-  test("getPostsBySender - error => 500", async () => {
-    const req: any = { query: { sender: "u" } };
+  test("getPostsByCreatedBy - error => 500", async () => {
+    const req: any = { query: { createdBy: "u" } };
     const res = mockRes();
     jest.spyOn(Post, "find").mockImplementation(() => {
       throw new Error("boom");
     });
-    await (postController as any).getPostsBySender(req, res);
+    await (postController as any).getPostsByCreatedBy(req, res);
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({
       error: "לא הצלחנו להביא את הפוסטים לפי שליח",
