@@ -1,15 +1,14 @@
 import mongoose, { Schema, type Model } from "mongoose";
-import { User } from "./User";
 
 export interface IPost {
-  createdBy: typeof User;
+  createdBy: string;
   title: string;
   content: string;
 }
 
 const PostSchema = new Schema<IPost>(
   {
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: { type: String, required: true },
     title: { type: String, required: true },
     content: { type: String, required: true },
   },

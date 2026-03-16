@@ -10,10 +10,9 @@ class PostController extends BaseController {
 
   async getAllPosts(req: Request, res: Response) {
     try {
-      const posts = await this.model
-        .find(req.query || {})
-        .populate("createdBy", "username email")
-        .sort({ createdAt: -1 });
+      const posts = await this.model.find(req.query || {}).sort({
+        createdAt: -1,
+      });
       const transformedPosts = posts.map((post: IPost & { id: string }) => ({
         id: post.id,
         title: post.title,
@@ -44,12 +43,9 @@ class PostController extends BaseController {
           .json({ error: "sender query parameter is required" });
       }
 
-      const posts = await this.model
-        .find({ createdBy: sender })
-        .populate("createdBy", "username email")
-        .sort({
-          createdAt: -1,
-        });
+      const posts = await this.model.find({ createdBy: sender }).sort({
+        createdAt: -1,
+      });
       return res.json(posts);
     } catch (err) {
       console.error("תקלה בשליפת הפוסטים לפי שליח:", (err as Error).message);
@@ -61,9 +57,7 @@ class PostController extends BaseController {
 
   async getPostById(req: Request, res: Response) {
     try {
-      const post = await this.model
-        .findById(req.params.postId)
-        .populate("createdBy", "username email");
+      const post = await this.model.findById(req.params.postId);
 
       if (!post) return res.status(404).json({ error: "Post not found" });
       return res.json(post);
@@ -77,9 +71,7 @@ class PostController extends BaseController {
     try {
       const { postId } = req.params;
 
-      const comments = await Comment.find({ postId })
-        .populate("createdBy", "-password -refreshTokens")
-        .sort({ createdAt: -1 });
+      const comments = await Comment.find({ postId }).sort({ createdAt: -1 });
 
       return res.json(comments);
     } catch {
