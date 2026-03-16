@@ -96,7 +96,10 @@ router.get("/:postId", postController.getPostById.bind(postController));
  *       500:
  *         description: Failed to get comments
  */
-router.get("/:postId/comments", postController.getCommentsByPost.bind(postController));
+router.get(
+  "/:postId/comments",
+  postController.getCommentsByPost.bind(postController),
+);
 
 /**
  * @swagger
@@ -181,5 +184,38 @@ router.post("/", postController.createPost.bind(postController));
  *         description: Failed to update post
  */
 router.put("/:postId", postController.updatePost.bind(postController));
+
+/**
+ * @swagger
+ * /posts/{postId}:
+ *   delete:
+ *     summary: Delete a post
+ *     description: Delete an existing post by ID. No authentication required.
+ *     tags: [Posts]
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Post ID
+ *     responses:
+ *       200:
+ *         description: Post successfully deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *       404:
+ *         description: Post not found
+ *       400:
+ *         description: Invalid post id
+ */
+router.delete("/:postId", postController.deletePost.bind(postController));
 
 export default router;

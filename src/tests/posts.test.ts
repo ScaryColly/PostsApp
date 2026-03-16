@@ -1,9 +1,9 @@
+import type { Express } from "express";
 import request from "supertest";
 import intApp from "../index";
-import { Post } from "../models/Post";
 import { Comment } from "../models/Comment";
+import { Post } from "../models/Post";
 import { User } from "../models/User";
-import type { Express } from "express";
 
 type PostSeed = {
   createdBy: string;
@@ -112,6 +112,17 @@ describe("Posts API", () => {
       .send(updated);
     expect(res.statusCode).toBe(200);
     expect(res.body.title).toBe(updated.title);
+  });
+
+  test("DELETE /posts/:postId - delete", async () => {
+    const id = postsData[2]._id!;
+
+    const res = await request(app).delete("/posts/" + id);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+
+    const deletedPost = await Post.findById(id);
+    expect(deletedPost).toBeNull();
   });
 
   test("GET /posts/:postId/comments - empty", async () => {
