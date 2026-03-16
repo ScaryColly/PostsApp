@@ -1,7 +1,8 @@
 import express from "express";
-const router = express.Router();
-
 import postController from "../controllers/postController";
+import { postImageUpload } from "../middleware/upload";
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -74,7 +75,6 @@ router.get("/:postId", postController.getPostById.bind(postController));
  * @swagger
  * /posts/{postId}/comments:
  *   get:
- *     summary: Get comments for a post
  *     description: Retrieve comments by postId.
  *     tags: [Posts]
  *     security: []
@@ -105,6 +105,74 @@ router.get(
 
 /**
  * @swagger
+ * /posts/{postId}/like:
+ *   post:
+ *     summary: Like a post
+ *     description: Mark a post as liked by a specific user.
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Post ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/PostLikeRequest'
+ *     responses:
+ *       200:
+ *         description: Post liked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PostLikeResponse'
+ *       400:
+ *         description: userId is required or invalid post id
+ *       404:
+ *         description: Post not found
+ */
+router.post("/:postId/like", postController.likePost.bind(postController));
+
+/**
+ * @swagger
+ * /posts/{postId}/like:
+ *   delete:
+ *     summary: Remove like from a post
+ *     description: Remove a specific user's like from a post.
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Post ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/PostLikeRequest'
+ *     responses:
+ *       200:
+ *         description: Like removed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PostLikeResponse'
+ *       400:
+ *         description: userId is required or invalid post id
+ *       404:
+ *         description: Post not found
+ */
+router.delete("/:postId/like", postController.unlikePost.bind(postController));
+
+/**
+ * @swagger
  * /posts:
  *   post:
  *     summary: Create a new post
@@ -114,7 +182,7 @@ router.get(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required: [createdBy, title, content]
@@ -129,6 +197,9 @@ router.get(
  *               content:
  *                 type: string
  *                 example: "Content A"
+ *               image:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
  *         description: Post successfully created
@@ -141,7 +212,11 @@ router.get(
  *       500:
  *         description: Failed to create post
  */
-router.post("/", postController.createPost.bind(postController));
+router.post(
+  "/",
+  postImageUpload.single("image"),
+  postController.createPost.bind(postController),
+);
 
 /**
  * @swagger
@@ -162,7 +237,7 @@ router.post("/", postController.createPost.bind(postController));
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required: [createdBy, title, content]
@@ -177,6 +252,9 @@ router.post("/", postController.createPost.bind(postController));
  *               content:
  *                 type: string
  *                 example: "Updated content"
+ *               image:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       200:
  *         description: Post successfully updated
@@ -191,7 +269,11 @@ router.post("/", postController.createPost.bind(postController));
  *       500:
  *         description: Failed to update post
  */
-router.put("/:postId", postController.updatePost.bind(postController));
+router.put(
+  "/:postId",
+  postImageUpload.single("image"),
+  postController.updatePost.bind(postController),
+);
 
 /**
  * @swagger
