@@ -1,9 +1,9 @@
 import express from "express";
 import userController from "../controllers/userController";
 import { authMiddleware } from "../middleware/auth";
+import { profileImageUpload } from "../middleware/upload";
 
 const router = express.Router();
-
 /**
  * @swagger
  * tags:
@@ -50,7 +50,11 @@ const router = express.Router();
  *       409:
  *         description: User with this email or username already exists
  */
-router.post("/register", userController.register.bind(userController));
+router.post(
+  "/register",
+  profileImageUpload.single("profileImage"),
+  userController.register.bind(userController)
+);
 
 /**
  * @swagger
@@ -90,6 +94,34 @@ router.post("/login", userController.login.bind(userController));
 
 /**
  * @swagger
+ * /users/google:
+ *   post:
+ *     summary: Login or register with Google
+ *     description: Authenticate a user using Google external provider
+ *     tags: [Users]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/GoogleAuthRequest'
+ *     responses:
+ *       200:
+ *         description: Google authentication successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Google idToken is required
+ *       401:
+ *         description: Google authentication failed
+ */
+router.post("/google", userController.googleLogin.bind(userController));
+
+/**
+ * @swagger
  * /users/refresh:
  *   post:
  *     summary: Refresh access token
@@ -101,12 +133,7 @@ router.post("/login", userController.login.bind(userController));
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [refreshToken]
- *             properties:
- *               refreshToken:
- *                 type: string
- *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
  *     responses:
  *       200:
  *         description: Token refreshed successfully
@@ -153,6 +180,90 @@ router.post("/refresh", userController.refreshToken.bind(userController));
  *         description: User not found
  */
 router.post("/logout", authMiddleware, userController.logout.bind(userController));
+
+/**
+ * @swagger
+ * /users/me:
+ *   get:
+ *     summary: Get current user
+ *     description: Retrieve the currently authenticated user profile
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved current user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       401:
+ *         description: User not authenticated
+ *       404:
+ *         description: User not found
+ */
+router.get("/me", authMiddleware, userController.getMe.bind(userController));
+
+/**
+ * @swagger
+ * /users/me:
+ *   put:
+ *     summary: Update current user
+ *     description: Update the current authenticated user username and/or profile image
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateCurrentUserFormData'
+ *     responses:
+ *       200:
+ *         description: Current user updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       401:
+ *         description: User not authenticated
+ *       404:
+ *         description: User not found
+ */
+router.put(
+  "/me",
+  authMiddleware,
+  profileImageUpload.single("profileImage"),
+  userController.updateMe.bind(userController),
+);
+
+/**
+ * @swagger
+ * /users/me/posts:
+ *   get:
+ *     summary: Get current user posts
+ *     description: Retrieve all posts created by the currently authenticated user
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved current user posts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Post'
+ *       401:
+ *         description: User not authenticated
+ */
+router.get(
+  "/me/posts",
+  authMiddleware,
+  userController.getUserPosts.bind(userController),
+);
 
 /**
  * @swagger
@@ -209,10 +320,10 @@ router.get("/:userId", userController.getUserById.bind(userController));
 
 /**
  * @swagger
- * /users/{userId}:
- *   put:
- *     summary: Update user
- *     description: Update user information (username and email only)
+ * /users/{userId}/posts:
+ *   get:
+ *     summary: Get posts by user ID
+ *     description: Retrieve all posts created by a specific user
  *     tags: [Users]
  *     security: []
  *     parameters:
@@ -222,19 +333,40 @@ router.get("/:userId", userController.getUserById.bind(userController));
  *         schema:
  *           type: string
  *         description: User ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved user posts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Post'
+ */
+router.get("/:userId/posts", userController.getUserPosts.bind(userController));
+
+/**
+ * @swagger
+ * /users/{userId}:
+ *   put:
+ *     summary: Update user
+ *     description: Update user information (username and profile image only, only the owner can update)
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             type: object
- *             properties:
- *               username:
- *                 type: string
- *                 example: "new_username"
- *               email:
- *                 type: string
- *                 example: "newemail@example.com"
+ *             $ref: '#/components/schemas/UpdateCurrentUserFormData'
  *     responses:
  *       200:
  *         description: User updated successfully
@@ -243,20 +375,27 @@ router.get("/:userId", userController.getUserById.bind(userController));
  *             schema:
  *               $ref: '#/components/schemas/User'
  *       400:
- *         description: Invalid user ID or invalid data
+ *         description: Invalid input or invalid user ID
  *       401:
- *         description: Unauthorized
+ *         description: User not authenticated
+ *       403:
+ *         description: Forbidden - can update only own user
  *       404:
  *         description: User not found
  */
-router.put("/:userId", userController.updateUser.bind(userController));
+router.put(
+  "/:userId",
+  authMiddleware,
+  profileImageUpload.single("profileImage"),
+  userController.updateUser.bind(userController),
+);
 
 /**
  * @swagger
  * /users/{userId}:
  *   delete:
  *     summary: Delete user
- *     description: Delete a user account
+ *     description: Delete a user account (only the owner can delete)
  *     tags: [Users]
  *     security:
  *       - BearerAuth: []
@@ -270,13 +409,17 @@ router.put("/:userId", userController.updateUser.bind(userController));
  *     responses:
  *       200:
  *         description: User deleted successfully
- *       400:
- *         description: Invalid user ID
  *       401:
- *         description: Unauthorized
+ *         description: User not authenticated
+ *       403:
+ *         description: Forbidden - can delete only own user
  *       404:
  *         description: User not found
  */
-router.delete("/:userId", authMiddleware, userController.deleteUser.bind(userController));
+router.delete(
+  "/:userId",
+  authMiddleware,
+  userController.deleteUser.bind(userController),
+);
 
 export default router;
