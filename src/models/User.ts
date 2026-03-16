@@ -5,7 +5,7 @@ export type AuthProvider = "local" | "google";
 
 export interface IUser extends Document {
   username: string;
-  email: string;
+  email?: string;
   password?: string;
   profileImage?: string;
   authProvider: AuthProvider;
@@ -25,7 +25,7 @@ const UserSchema = new Schema<IUser>(
     },
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
       trim: true,
       lowercase: true,
