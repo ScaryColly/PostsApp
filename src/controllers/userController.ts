@@ -24,7 +24,7 @@ class UserController extends BaseController {
     return {
       _id: user._id,
       username: user.username,
-      email: user.email,
+      email: user.email || null,
       profileImage: user.profileImage || null,
       authProvider: user.authProvider || "local",
       createdAt: user.createdAt,
@@ -44,13 +44,9 @@ class UserController extends BaseController {
   }
 
   private removeOldProfileImage(profileImage?: string | null) {
-    if (!profileImage) {
-      return;
-    }
+    if (!profileImage) return;
 
-    if (!profileImage.startsWith("/uploads/profiles/")) {
-      return;
-    }
+    if (!profileImage.startsWith("/uploads/profiles/")) return;
 
     const relativePath = profileImage.startsWith("/")
       ? profileImage.slice(1)
@@ -113,94 +109,88 @@ class UserController extends BaseController {
     }
   }
 
- async getUserPosts(req: AuthRequest, res: Response) {
-  try {
-    const userId = (req.params.userId ?? req.userId) as string | undefined;
+  async getUserPosts(req: AuthRequest, res: Response) {
+    try {
+      const userId = (req.params.userId ?? req.userId) as string | undefined;
 
-    if (!userId) {
-      return res.status(400).json({ error: "User id is required" });
-    }
-
-    const posts = await Post.find({ createdBy: userId as any })
-      .populate("createdBy", "username email profileImage")
-      .sort({ createdAt: -1 });
-
-    return res.json(posts);
-  } catch (err) {
-    console.error("תקלה בשליפת פוסטים של משתמש:", (err as Error).message);
-    return res.status(500).json({ error: "Failed to get user posts" });
-  }
-}
-
-async register(req: AuthRequest, res: Response) {
-  try {
-    const { username, email, password } = req.body;
-
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const normalizedEmail = email.toLowerCase();
-
-    const existingUser = await User.findOne({
-      $or: [{ email: normalizedEmail }, { username }],
-    });
-
-    if (existingUser) {
-      if (req.file) {
-        this.removeOldProfileImage(`/uploads/profiles/${req.file.filename}`);
+      if (!userId) {
+        return res.status(400).json({ error: "User id is required" });
       }
 
-      return res
-        .status(409)
-        .json({ error: "User with this email or username already exists" });
+      const posts = await Post.find({ createdBy: userId as any })
+        .populate("createdBy", "username email profileImage")
+        .sort({ createdAt: -1 });
+
+      return res.json(posts);
+    } catch (err) {
+      console.error("תקלה בשליפת פוסטים של משתמש:", (err as Error).message);
+      return res.status(500).json({ error: "Failed to get user posts" });
     }
-
-    const profileImage = req.file
-      ? `/uploads/profiles/${req.file.filename}`
-      : undefined;
-
-    const newUser = await User.create({
-      username,
-      email: normalizedEmail,
-      password,
-      profileImage,
-      authProvider: "local",
-    });
-
-    const { accessToken, refreshToken } = await this.issueTokensAndSave(newUser);
-
-    return res.status(201).json({
-      ...this.buildUserResponse(newUser),
-      accessToken,
-      refreshToken,
-    });
-  } catch (err) {
-    console.error("תקלה ביצירת המשתמש:", (err as Error).message);
-    return res.status(400).json({ error: "לא הצלחנו ליצור את המשתמש" });
   }
-}
+
+  async register(req: AuthRequest, res: Response) {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const existingUser = await User.findOne({ username: username.trim() });
+
+      if (existingUser) {
+        if (req.file) {
+          this.removeOldProfileImage(`/uploads/profiles/${req.file.filename}`);
+        }
+
+        return res
+          .status(409)
+          .json({ error: "User with this username already exists" });
+      }
+
+      const profileImage = req.file
+        ? `/uploads/profiles/${req.file.filename}`
+        : undefined;
+
+      const newUser = await User.create({
+        username: username.trim(),
+        password,
+        profileImage,
+        authProvider: "local",
+      });
+
+      const { accessToken, refreshToken } = await this.issueTokensAndSave(newUser);
+
+      return res.status(201).json({
+        ...this.buildUserResponse(newUser),
+        accessToken,
+        refreshToken,
+      });
+    } catch (err) {
+      console.error("תקלה ביצירת המשתמש:", (err as Error).message);
+      return res.status(400).json({ error: "לא הצלחנו ליצור את המשתמש" });
+    }
+  }
 
   async login(req: AuthRequest, res: Response) {
     try {
-      const { email, password } = req.body;
+      const { username, password } = req.body;
 
-      if (!email || !password) {
+      if (!username || !password) {
         return res
           .status(400)
-          .json({ error: "Email and password are required" });
+          .json({ error: "Username and password are required" });
       }
 
-      const normalizedEmail = email.toLowerCase();
+      const user = await User.findOne({ username: username.trim() });
 
-      const user = await User.findOne({ email: normalizedEmail });
       if (!user || (user.authProvider && user.authProvider !== "local")) {
-        return res.status(401).json({ error: "Invalid email or password" });
+        return res.status(401).json({ error: "Invalid username or password" });
       }
 
       const isPasswordValid = await (user as any).comparePassword(password);
       if (!isPasswordValid) {
-        return res.status(401).json({ error: "Invalid email or password" });
+        return res.status(401).json({ error: "Invalid username or password" });
       }
 
       const { accessToken, refreshToken } = await this.issueTokensAndSave(user);
@@ -355,7 +345,7 @@ async register(req: AuthRequest, res: Response) {
       return res.json({ message: "Logged out successfully" });
     } catch (err) {
       console.error("תקלה ביציאה:", (err as Error).message);
-      return res.status(500).json({ error: "לא הצלחנו ליצאת" });
+      return res.status(500).json({ error: "לא הצלחנו לצאת" });
     }
   }
 
@@ -371,7 +361,16 @@ async register(req: AuthRequest, res: Response) {
       const updateData: any = {};
 
       if (username) {
-        updateData.username = username;
+        const existingUserWithSameUsername = await User.findOne({
+          username: username.trim(),
+          _id: { $ne: req.userId },
+        });
+
+        if (existingUserWithSameUsername) {
+          return res.status(409).json({ error: "Username already taken" });
+        }
+
+        updateData.username = username.trim();
       }
 
       if (req.file) {
