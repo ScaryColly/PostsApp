@@ -129,6 +129,19 @@ class PostController extends BaseController {
       return res.status(500).json({ error: "לא הצלחנו לעדכן את הפוסט" });
     }
   }
+
+  async deletePost(req: Request, res: Response) {
+    try {
+      req.params.id = req.params.postId;
+      const deleted = await super.del(req);
+
+      if (!deleted) return res.status(404).json({ error: "Post not found" });
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("תקלה במחיקת הפוסט:", (err as Error).message);
+      return res.status(400).json({ error: "Invalid post id" });
+    }
+  }
 }
 
 export default new PostController();

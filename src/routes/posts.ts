@@ -185,4 +185,37 @@ router.post("/", postController.createPost.bind(postController));
  */
 router.put("/:postId", postController.updatePost.bind(postController));
 
+/**
+ * @swagger
+ * /posts/{postId}:
+ *   delete:
+ *     summary: Delete a post
+ *     description: Delete an existing post by ID. No authentication required.
+ *     tags: [Posts]
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Post ID
+ *     responses:
+ *       200:
+ *         description: Post successfully deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *       404:
+ *         description: Post not found
+ *       400:
+ *         description: Invalid post id
+ */
+router.delete("/:postId", postController.deletePost.bind(postController));
+
 export default router;
