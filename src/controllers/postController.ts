@@ -77,10 +77,9 @@ class PostController extends BaseController {
     try {
       const { postId } = req.params;
 
-      const comments = await (Comment as any).collection
-        .find({ postId })
-        .sort({ createdAt: -1 })
-        .toArray();
+      const comments = await Comment.find({ postId })
+        .populate("createdBy", "-password -refreshTokens")
+        .sort({ createdAt: -1 });
 
       return res.json(comments);
     } catch {
