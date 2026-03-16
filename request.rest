@@ -79,3 +79,13 @@ Content-Type: application/json
   "email": "newuser@example.com",
   "password": "password123"
 }
+
+### Register Another User
+POST http://localhost:3000/users/register
+Content-Type: application/json
+
+{
+  "username": "anotheruser",
+  "email": "anotheruser@example.com",
+  "password": "password1123"
+}
