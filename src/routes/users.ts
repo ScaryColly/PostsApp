@@ -94,10 +94,10 @@ router.post("/login", userController.login.bind(userController));
 
 /**
  * @swagger
- * /users/google:
+ * /users/google-login:
  *   post:
- *     summary: Login or register with Google
- *     description: Authenticate a user using Google external provider
+ *     summary: Login with Google
+ *     description: Authenticate an existing Google user using a valid Google idToken
  *     tags: [Users]
  *     security: []
  *     requestBody:
@@ -108,17 +108,46 @@ router.post("/login", userController.login.bind(userController));
  *             $ref: '#/components/schemas/GoogleAuthRequest'
  *     responses:
  *       200:
- *         description: Google authentication successful
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
+ *         description: Google login successful
  *       400:
  *         description: Google idToken is required
  *       401:
- *         description: Google authentication failed
+ *         description: Invalid Google token or this account was not registered with Google
+ *       404:
+ *         description: No Google account exists for this user
  */
-router.post("/google", userController.googleLogin.bind(userController));
+router.post("/google-login", userController.googleLogin.bind(userController));
+
+
+/**
+ * @swagger
+ * /users/google-register:
+ *   post:
+ *     summary: Register a new user with Google
+ *     description: Create a new Google-based user account using a valid Google idToken
+ *     tags: [Users]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/GoogleAuthRequest'
+ *     responses:
+ *       201:
+ *         description: Google registration successful
+ *       400:
+ *         description: Google idToken is required
+ *       401:
+ *         description: Invalid Google token or Google registration failed
+ *       409:
+ *         description: A Google account with this email already exists
+ */
+router.post(
+  "/google-register",
+  userController.googleRegister.bind(userController)
+);
+
 
 /**
  * @swagger
