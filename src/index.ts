@@ -1,12 +1,13 @@
+import cors from "cors";
 import "dotenv/config";
 import express, { type Express, type Request, type Response } from "express";
 import mongoose from "mongoose";
-import cors from "cors";
 import path from "path";
+import { User } from "./models/User";
 import { specs, swaggerUi } from "./swagger";
 
-import postRoutes from "./routes/posts";
 import commentRoutes from "./routes/comments";
+import postRoutes from "./routes/posts";
 import userRoutes from "./routes/users";
 
 const intApp = (): Promise<Express> => {
@@ -35,7 +36,11 @@ const intApp = (): Promise<Express> => {
 
     mongoose
       .connect(dbUri)
-      .then(() => resolve(app))
+      .then(async () => {
+        // Align DB indexes with current schema (includes partial unique email index).
+        await User.syncIndexes();
+        resolve(app);
+      })
       .catch((err) => reject(err));
 
     const db = mongoose.connection;

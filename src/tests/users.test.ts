@@ -465,4 +465,39 @@ describe("Users API", () => {
       expect(res.statusCode).toBe(403);
     });
   });
+
+  describe("Email uniqueness behavior", () => {
+    test("allows multiple users with null/missing email and rejects duplicate real email", async () => {
+      const userNoEmail1 = await User.create({
+        username: "null_email_user_1",
+        password: "password123",
+        authProvider: "local",
+      });
+
+      const userNoEmail2 = await User.create({
+        username: "null_email_user_2",
+        password: "password123",
+        authProvider: "local",
+      });
+
+      expect(userNoEmail1).toBeTruthy();
+      expect(userNoEmail2).toBeTruthy();
+
+      await User.create({
+        username: "real_email_user_1",
+        email: "unique_email@example.com",
+        password: "password123",
+        authProvider: "local",
+      });
+
+      await expect(
+        User.create({
+          username: "real_email_user_2",
+          email: "unique_email@example.com",
+          password: "password123",
+          authProvider: "local",
+        }),
+      ).rejects.toThrow();
+    });
+  });
 });
