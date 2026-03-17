@@ -1,5 +1,6 @@
 import express from "express";
 import postController from "../controllers/postController";
+import { authMiddleware } from "../middleware/auth";
 import { postImageUpload } from "../middleware/upload";
 
 const router = express.Router();
@@ -40,6 +41,60 @@ const router = express.Router();
  *         description: Failed to get posts
  */
 router.get("/", postController.getPosts.bind(postController));
+
+/**
+ * @swagger
+ * /posts/search:
+ *   post:
+ *     summary: Search posts using free-text query
+ *     description: Performs free-text search with pagination and optional filters.
+ *     tags: [Posts]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [query]
+ *             properties:
+ *               query:
+ *                 type: string
+ *                 example: "docker build error"
+ *               page:
+ *                 type: integer
+ *                 example: 1
+ *               limit:
+ *                 type: integer
+ *                 example: 20
+ *               sort:
+ *                 type: string
+ *                 enum: [relevance, newest]
+ *               filters:
+ *                 type: object
+ *                 properties:
+ *                   createdBy:
+ *                     type: string
+ *                   dateFrom:
+ *                     type: string
+ *                     format: date-time
+ *                   dateTo:
+ *                     type: string
+ *                     format: date-time
+ *     responses:
+ *       200:
+ *         description: Search results
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Failed to search posts
+ */
+router.post(
+  "/search",
+  authMiddleware,
+  postController.searchPosts.bind(postController),
+);
 
 /**
  * @swagger

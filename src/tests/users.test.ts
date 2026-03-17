@@ -1,8 +1,9 @@
+import type { Express } from "express";
 import request from "supertest";
 import intApp from "../index";
-import { User } from "../models/User";
+import { generateAccessToken } from "../middleware/auth";
 import { Post } from "../models/Post";
-import type { Express } from "express";
+import { User } from "../models/User";
 
 let app: Express;
 let accessToken: string;
@@ -14,13 +15,11 @@ let user: any;
 
 const testUser = {
   username: "testuser",
-  email: "test@example.com",
   password: "password123",
 };
 
 const testUser2 = {
   username: "testuser2",
-  email: "test2@example.com",
   password: "password456",
 };
 
@@ -54,7 +53,7 @@ describe("Users API", () => {
       expect(res.body).toHaveProperty("accessToken");
       expect(res.body).toHaveProperty("refreshToken");
       expect(res.body.username).toBe(testUser.username);
-      expect(res.body.email).toBe(testUser.email);
+      expect(res.body.email).toBeNull();
       expect(res.body).not.toHaveProperty("password");
       expect(res.body).toHaveProperty("profileImage");
 
@@ -64,21 +63,9 @@ describe("Users API", () => {
       user = await User.findById(userId);
     });
 
-    test("Register - duplicate email => 409", async () => {
-      const res = await request(app).post("/users/register").send({
-        username: "differentuser",
-        email: testUser.email,
-        password: "password123",
-      });
-
-      expect(res.statusCode).toBe(409);
-      expect(res.body.error).toContain("already exists");
-    });
-
     test("Register - duplicate username => 409", async () => {
       const res = await request(app).post("/users/register").send({
         username: testUser.username,
-        email: "different@example.com",
         password: "password123",
       });
 
@@ -86,14 +73,16 @@ describe("Users API", () => {
       expect(res.body.error).toContain("already exists");
     });
 
-    test("Register - second user", async () => {
-      const res = await request(app).post("/users/register").send(testUser2);
+    test("Create second user directly for authorization checks", async () => {
+      const secondUser = await User.create({
+        username: testUser2.username,
+        email: "test2@example.com",
+        password: testUser2.password,
+        authProvider: "local",
+      });
 
-      expect(res.statusCode).toBe(201);
-      expect(res.body.username).toBe(testUser2.username);
-
-      secondUserId = res.body._id;
-      secondUserAccessToken = res.body.accessToken;
+      secondUserId = String(secondUser._id);
+      secondUserAccessToken = "";
     });
   });
 
@@ -101,7 +90,7 @@ describe("Users API", () => {
     test("Login - missing fields => 400", async () => {
       const res = await request(app)
         .post("/users/login")
-        .send({ email: "test@example.com" });
+        .send({ username: "testuser" });
 
       expect(res.statusCode).toBe(400);
       expect(res.body.error).toContain("required");
@@ -110,7 +99,7 @@ describe("Users API", () => {
     test("Login - invalid email => 401", async () => {
       const res = await request(app)
         .post("/users/login")
-        .send({ email: "invalid@example.com", password: "password123" });
+        .send({ username: "invaliduser", password: "password123" });
 
       expect(res.statusCode).toBe(401);
       expect(res.body.error).toContain("Invalid");
@@ -119,7 +108,7 @@ describe("Users API", () => {
     test("Login - invalid password => 401", async () => {
       const res = await request(app)
         .post("/users/login")
-        .send({ email: testUser.email, password: "wrongpassword" });
+        .send({ username: testUser.username, password: "wrongpassword" });
 
       expect(res.statusCode).toBe(401);
       expect(res.body.error).toContain("Invalid");
@@ -127,7 +116,7 @@ describe("Users API", () => {
 
     test("Login - successful login", async () => {
       const res = await request(app).post("/users/login").send({
-        email: testUser.email,
+        username: testUser.username,
         password: testUser.password,
       });
 
@@ -185,7 +174,6 @@ describe("Users API", () => {
       expect(res.statusCode).toBe(200);
       expect(res.body._id).toBe(userId);
       expect(res.body.username).toBeDefined();
-      expect(res.body.email).toBeDefined();
       expect(res.body).not.toHaveProperty("password");
       expect(res.body).not.toHaveProperty("refreshTokens");
     });
@@ -198,7 +186,6 @@ describe("Users API", () => {
       expect(res.statusCode).toBe(200);
       expect(res.body._id).toBe(userId);
       expect(res.body.username).toBeDefined();
-      expect(res.body.email).toBeDefined();
       expect(res.body).not.toHaveProperty("password");
       expect(res.body).not.toHaveProperty("refreshTokens");
     });
@@ -234,7 +221,6 @@ describe("Users API", () => {
       expect(res.statusCode).toBe(200);
       expect(res.body._id).toBe(userId);
       expect(res.body.username).toBeDefined();
-      expect(res.body.email).toBeDefined();
       expect(res.body).not.toHaveProperty("password");
       expect(res.body).not.toHaveProperty("refreshTokens");
     });
@@ -266,7 +252,7 @@ describe("Users API", () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.body.username).toBe("updatedusername");
-      expect(res.body.email).toBe(testUser.email);
+      expect(res.body).not.toHaveProperty("email");
 
       user = await User.findById(userId);
     });
@@ -278,7 +264,7 @@ describe("Users API", () => {
         .field("email", "newemail@example.com");
 
       expect(res.statusCode).toBe(200);
-      expect(res.body.email).toBe(testUser.email);
+      expect(res.body).not.toHaveProperty("email");
     });
 
     test("Update user - password should not be updated", async () => {
@@ -290,7 +276,7 @@ describe("Users API", () => {
       expect(res.statusCode).toBe(200);
 
       const loginRes = await request(app).post("/users/login").send({
-        email: testUser.email,
+        username: "updatedusername",
         password: testUser.password,
       });
 
@@ -324,7 +310,7 @@ describe("Users API", () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.body.username).toBe("updated_via_me");
-      expect(res.body.email).toBe(testUser.email);
+      expect(res.body).not.toHaveProperty("email");
 
       user = await User.findById(userId);
     });
@@ -336,18 +322,16 @@ describe("Users API", () => {
         .field("email", "shouldnotchange@example.com");
 
       expect(res.statusCode).toBe(200);
-      expect(res.body.email).toBe(testUser.email);
+      expect(res.body).not.toHaveProperty("email");
     });
   });
 
   describe("GET /users/me/posts and /users/:userId/posts", () => {
     test("Create post directly in DB for current user", async () => {
-      user = await User.findById(userId);
-
       await Post.create({
         title: "My first post",
         content: "My post content",
-        createdBy: user,
+        createdBy: userId,
       });
     });
 
@@ -430,17 +414,16 @@ describe("Users API", () => {
   });
 
   describe("DELETE /users/:userId", () => {
-    test("Delete user - first register a new user", async () => {
-      const res = await request(app).post("/users/register").send({
+    test("Delete user - create a new user directly", async () => {
+      const created = await User.create({
         username: "usertodeleta",
         email: "usertodelete@example.com",
         password: "password123",
+        authProvider: "local",
       });
 
-      expect(res.statusCode).toBe(201);
-
-      userId = res.body._id;
-      accessToken = res.body.accessToken;
+      userId = String(created._id);
+      accessToken = generateAccessToken(userId);
       user = await User.findById(userId);
     });
 
@@ -480,6 +463,41 @@ describe("Users API", () => {
         .set("Authorization", `Bearer ${accessToken}`);
 
       expect(res.statusCode).toBe(403);
+    });
+  });
+
+  describe("Email uniqueness behavior", () => {
+    test("allows multiple users with null/missing email and rejects duplicate real email", async () => {
+      const userNoEmail1 = await User.create({
+        username: "null_email_user_1",
+        password: "password123",
+        authProvider: "local",
+      });
+
+      const userNoEmail2 = await User.create({
+        username: "null_email_user_2",
+        password: "password123",
+        authProvider: "local",
+      });
+
+      expect(userNoEmail1).toBeTruthy();
+      expect(userNoEmail2).toBeTruthy();
+
+      await User.create({
+        username: "real_email_user_1",
+        email: "unique_email@example.com",
+        password: "password123",
+        authProvider: "local",
+      });
+
+      await expect(
+        User.create({
+          username: "real_email_user_2",
+          email: "unique_email@example.com",
+          password: "password123",
+          authProvider: "local",
+        }),
+      ).rejects.toThrow();
     });
   });
 });
