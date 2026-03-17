@@ -59,6 +59,20 @@ describe("Comments API", () => {
     expect(res.body.message).toBe(updated.message);
   });
 
+  test("PATCH /comments/:commentId - edit message only", async () => {
+    const id = commentsData[1]._id!;
+    const editedMessage = "EDITED ONLY MESSAGE";
+
+    const res = await request(app)
+      .patch("/comments/" + id)
+      .send({ message: editedMessage });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.message).toBe(editedMessage);
+    expect(res.body.postId).toBe(commentsData[1].postId);
+    expect(res.body.createdBy).toBe(commentsData[1].createdBy);
+  });
+
   test("DELETE /comments/:commentId - delete", async () => {
     const id = commentsData[0]._id!;
     const res = await request(app).delete("/comments/" + id);

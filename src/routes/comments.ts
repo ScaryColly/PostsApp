@@ -147,6 +147,48 @@ router.put(
 /**
  * @swagger
  * /comments/{commentId}:
+ *   patch:
+ *     summary: Edit a comment
+ *     description: Partially update a comment by ID. Useful for editing only the comment message.
+ *     tags: [Comments]
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Comment ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 example: "Edited comment text"
+ *     responses:
+ *       200:
+ *         description: Comment successfully updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Comment'
+ *       404:
+ *         description: Comment not found
+ *       400:
+ *         description: Validation / bad request
+ */
+router.patch(
+  "/:commentId",
+  commentController.updateComment.bind(commentController),
+);
+
+/**
+ * @swagger
+ * /comments/{commentId}:
  *   delete:
  *     summary: Delete a comment
  *     description: Delete an existing comment by ID. No authentication required.

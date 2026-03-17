@@ -12,6 +12,7 @@ export type SearchRequestBody = {
   sort?: unknown;
   filters?: {
     createdBy?: unknown;
+    createdAt?: unknown;
     dateFrom?: unknown;
     dateTo?: unknown;
     [key: string]: unknown;
@@ -67,7 +68,6 @@ export type SearchPostsResult = {
     image: string | null;
     likes: string[];
     createdAt?: Date;
-    updatedAt?: Date;
   }>;
   page: number;
   limit: number;
@@ -78,16 +78,14 @@ export type SearchPostsResult = {
     sortApplied: "relevance" | "newest";
     filtersApplied: {
       createdBy?: string;
-      dateFrom?: string;
-      dateTo?: string;
+      createdAt?: string;
     };
     parsedIntent: {
       keywords: string[];
       mustInclude: string[];
       exclude: string[];
       createdBy: string | null;
-      dateFrom: string | null;
-      dateTo: string | null;
+      createdAt: string | null;
       sortBy: "relevance" | "newest";
     };
   };
@@ -194,6 +192,112 @@ const extractFallbackKeywords = (query: string): string[] => {
   return unique.length > 0 ? unique : query.split(/\s+/).filter(Boolean);
 };
 
+const startOfUtcDay = (date: Date): Date =>
+  new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+
+const addUtcDays = (date: Date, days: number): Date => {
+  const nextDate = new Date(date);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  return nextDate;
+};
+
+const extractFallbackCreatedAt = (query: string): string | null => {
+  const normalizedQuery = query.toLowerCase();
+  const now = new Date();
+
+  if (/\byesterday\b/.test(normalizedQuery) || query.includes("אתמול")) {
+    return startOfUtcDay(addUtcDays(now, -1)).toISOString();
+  }
+
+  if (/\btoday\b/.test(normalizedQuery) || query.includes("היום")) {
+    return startOfUtcDay(now).toISOString();
+  }
+
+  return null;
+};
+
+const buildCreatedAtDayFilter = (createdAt: string) => {
+  const day = startOfUtcDay(new Date(createdAt));
+  const nextDay = addUtcDays(day, 1);
+
+  return {
+    $gte: day,
+    $lt: nextDay,
+  };
+};
+
+const DATE_ONLY_TERMS = new Set([
+  "today",
+  "yesterday",
+  "published",
+  "publish",
+  "posted",
+  "post",
+  "todays",
+  "what",
+  "was",
+  "were",
+  "מה",
+  "שפורסם",
+  "פורסם",
+  "פורסם",
+  "היום",
+  "יום",
+  "אתמול",
+  "מהפורסם",
+]);
+
+const isDateOnlyQuery = (query: string): boolean => {
+  const normalized = query
+    .toLowerCase()
+    .replace(/["'`]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  const rawTokens = normalized
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  const normalizedTokens = rawTokens.map((token) =>
+    normalizeHebrewToken(token),
+  );
+
+  if (rawTokens.length === 0) {
+    return false;
+  }
+
+  const hasTemporalDay =
+    rawTokens.some(
+      (token) =>
+        token === "today" ||
+        token === "yesterday" ||
+        token === "היום" ||
+        token === "אתמול",
+    ) ||
+    normalizedTokens.some(
+      (token) =>
+        token === "today" ||
+        token === "yesterday" ||
+        token === "יום" ||
+        token === "אתמול",
+    );
+
+  const allDateOnlyTerms = rawTokens.every(
+    (token, index) =>
+      DATE_ONLY_TERMS.has(token) ||
+      DATE_ONLY_TERMS.has(normalizedTokens[index]),
+  );
+
+  return hasTemporalDay && allDateOnlyTerms;
+};
+
 const dot = (a: number[], b: number[]): number => {
   let sum = 0;
   for (let i = 0; i < a.length; i += 1) {
@@ -261,9 +365,10 @@ const embedTextsWithOpenAi = async (texts: string[]): Promise<number[][]> => {
 const semanticFallbackSearch = async (
   query: string,
   deps: SearchDependencies,
+  filter: Record<string, unknown> = {},
 ): Promise<Array<IPost & { id: string } & any>> => {
   const candidates = await deps.model
-    .find({})
+    .find(filter)
     .sort({ createdAt: -1 })
     .skip(0)
     .limit(SEMANTIC_CANDIDATE_LIMIT);
@@ -343,8 +448,7 @@ export const searchPosts = async (
     mustInclude: [],
     exclude: [],
     createdBy: null,
-    dateFrom: null,
-    dateTo: null,
+    createdAt: extractFallbackCreatedAt(parsed.query),
     sortBy: "relevance",
   };
 
@@ -363,10 +467,17 @@ export const searchPosts = async (
   finalIntent = {
     ...finalIntent,
     createdBy: null,
-    dateFrom: null,
-    dateTo: null,
     sortBy: "relevance",
   };
+
+  if (finalIntent.createdAt && isDateOnlyQuery(parsed.query)) {
+    finalIntent = {
+      ...finalIntent,
+      keywords: [],
+      mustInclude: [],
+      exclude: [],
+    };
+  }
 
   const expandedKeywords = expandTermVariants(finalIntent.keywords);
   const expandedMustInclude = expandTermVariants(finalIntent.mustInclude);
@@ -405,6 +516,10 @@ export const searchPosts = async (
     });
   }
 
+  if (finalIntent.createdAt) {
+    filter.createdAt = buildCreatedAtDayFilter(finalIntent.createdAt);
+  }
+
   const skip = (parsed.page - 1) * parsed.limit;
   const sortSpec = { createdAt: -1 as const };
 
@@ -415,7 +530,13 @@ export const searchPosts = async (
 
   if (total === 0) {
     try {
-      const semanticPosts = await semanticFallbackSearch(parsed.query, deps);
+      const semanticPosts = await semanticFallbackSearch(
+        parsed.query,
+        deps,
+        finalIntent.createdAt
+          ? { createdAt: buildCreatedAtDayFilter(finalIntent.createdAt) }
+          : {},
+      );
       total = semanticPosts.length;
       posts = semanticPosts.slice(skip, skip + parsed.limit);
     } catch {
@@ -429,8 +550,13 @@ export const searchPosts = async (
   const items = posts.map((post) => ({
     ...deps.serializePost(post, likesByPostId.get(post.id) ?? []),
     createdAt: post.createdAt,
-    updatedAt: post.updatedAt,
   }));
+
+  const filtersApplied: SearchPostsResult["meta"]["filtersApplied"] = {};
+
+  if (finalIntent.createdAt) {
+    filtersApplied.createdAt = finalIntent.createdAt;
+  }
 
   return {
     items,
@@ -441,7 +567,7 @@ export const searchPosts = async (
     meta: {
       fallbackUsed,
       sortApplied: "relevance",
-      filtersApplied: {},
+      filtersApplied,
       parsedIntent: finalIntent,
     },
   };

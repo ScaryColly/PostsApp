@@ -3,8 +3,7 @@ export type LlmSearchIntent = {
   mustInclude?: unknown;
   exclude?: unknown;
   createdBy?: unknown;
-  dateFrom?: unknown;
-  dateTo?: unknown;
+  createdAt?: unknown;
   sortBy?: unknown;
 };
 
@@ -13,8 +12,7 @@ export type ParsedSearchIntent = {
   mustInclude: string[];
   exclude: string[];
   createdBy: string | null;
-  dateFrom: string | null;
-  dateTo: string | null;
+  createdAt: string | null;
   sortBy: "relevance" | "newest";
 };
 
@@ -112,16 +110,14 @@ export const sanitizeLlmIntent = (
       ? value.createdBy.trim()
       : defaults.createdBy;
 
-  const dateFrom = toIsoOrNull(value.dateFrom) ?? defaults.dateFrom;
-  const dateTo = toIsoOrNull(value.dateTo) ?? defaults.dateTo;
+  const createdAt = toIsoOrNull(value.createdAt) ?? defaults.createdAt;
 
   return {
     keywords: keywords.length > 0 ? keywords : defaults.keywords,
     mustInclude,
     exclude,
     createdBy,
-    dateFrom,
-    dateTo,
+    createdAt,
     sortBy: toSort(value.sortBy),
   };
 };
@@ -135,16 +131,19 @@ export const parseSearchIntentWithLlm = async (
   }
 
   const config = getSearchLlmConfig();
+  const currentDateTime = new Date().toISOString();
 
   const prompt = [
     "Convert the user's free-text post search query to strict JSON.",
     "Return only a JSON object with keys:",
-    "keywords (string[]), mustInclude (string[]), exclude (string[]), createdBy (string|null), dateFrom (ISO string|null), dateTo (ISO string|null), sortBy ('relevance'|'newest').",
+    "keywords (string[]), mustInclude (string[]), exclude (string[]), createdBy (string|null), createdAt (ISO string|null), sortBy ('relevance'|'newest').",
     "keywords must include semantic expansions and close domain terms that may appear in matching posts.",
     "Use the same language as the user query and avoid filler/stop words.",
     "For broad intent queries (for example 'posts related to anatomy'), include likely concrete anatomy terms (for example hand, digestive system, organs, bones) when relevant.",
+    "If the user asks for a specific day or relative day such as today or yesterday, set createdAt to an ISO string on that target UTC calendar day.",
     "Keep keywords concise and useful for retrieval (typically 3-8 terms).",
     "Do not include Mongo operators or any extra keys.",
+    `Current datetime (UTC): ${currentDateTime}`,
     `User query: ${query}`,
   ].join("\n");
 

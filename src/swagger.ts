@@ -131,7 +131,6 @@ const options: swaggerJsdoc.Options = {
               items: { type: "string", example: "507f1f77bcf86cd799439011" },
             },
             createdAt: { type: "string", format: "date-time" },
-            updatedAt: { type: "string", format: "date-time" },
           },
         },
 

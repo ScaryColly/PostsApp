@@ -22,8 +22,7 @@ describe("llmPostSearchParser", () => {
       mustInclude: [],
       exclude: [],
       createdBy: null,
-      dateFrom: null,
-      dateTo: null,
+      createdAt: null,
       sortBy: "relevance",
     };
 
@@ -33,8 +32,7 @@ describe("llmPostSearchParser", () => {
         mustInclude: ["prod"],
         exclude: ["windows"],
         createdBy: "u1",
-        dateFrom: "2026-03-01T00:00:00.000Z",
-        dateTo: "bad-date",
+        createdAt: "2026-03-01T12:00:00.000Z",
         sortBy: "newest",
         $where: "malicious",
       } as any,
@@ -45,8 +43,7 @@ describe("llmPostSearchParser", () => {
     expect(result.mustInclude).toEqual(["prod"]);
     expect(result.exclude).toEqual(["windows"]);
     expect(result.createdBy).toBe("u1");
-    expect(result.dateFrom).toBe("2026-03-01T00:00:00.000Z");
-    expect(result.dateTo).toBeNull();
+    expect(result.createdAt).toBe("2026-03-01T12:00:00.000Z");
     expect(result.sortBy).toBe("newest");
   });
 
@@ -56,8 +53,7 @@ describe("llmPostSearchParser", () => {
       mustInclude: [],
       exclude: [],
       createdBy: "u2",
-      dateFrom: "2026-03-01T00:00:00.000Z",
-      dateTo: "2026-03-17T00:00:00.000Z",
+      createdAt: "2026-03-17T00:00:00.000Z",
       sortBy: "relevance",
     };
 
@@ -71,8 +67,7 @@ describe("llmPostSearchParser", () => {
 
     expect(result.keywords).toEqual(["docker", "error"]);
     expect(result.createdBy).toBe("u2");
-    expect(result.dateFrom).toBe("2026-03-01T00:00:00.000Z");
-    expect(result.dateTo).toBe("2026-03-17T00:00:00.000Z");
+    expect(result.createdAt).toBe("2026-03-17T00:00:00.000Z");
     expect(result.sortBy).toBe("relevance");
   });
 
@@ -95,7 +90,7 @@ describe("llmPostSearchParser", () => {
         ok: true,
         json: async () => ({
           output_text:
-            '{"keywords":["docker"],"mustInclude":[],"exclude":[],"createdBy":null,"dateFrom":null,"dateTo":null,"sortBy":"relevance"}',
+            '{"keywords":["docker"],"mustInclude":[],"exclude":[],"createdBy":null,"createdAt":null,"sortBy":"relevance"}',
         }),
       } as Response);
 

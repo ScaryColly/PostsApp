@@ -5,6 +5,7 @@ export interface IPost {
   title: string;
   content: string;
   image?: string | null;
+  createdAt?: Date;
 }
 
 const PostSchema = new Schema<IPost>(
@@ -14,7 +15,7 @@ const PostSchema = new Schema<IPost>(
     content: { type: String, required: true },
     image: { type: String, default: null },
   },
-  { timestamps: true },
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 export const Post: Model<IPost> = mongoose.models.Post
