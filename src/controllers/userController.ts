@@ -206,80 +206,131 @@ class UserController extends BaseController {
     }
   }
 
-  async googleLogin(req: AuthRequest, res: Response) {
-    try {
-      const { idToken } = req.body;
+  async googleRegister(req: AuthRequest, res: Response) {
+  try {
+    const { idToken } = req.body;
 
-      if (!idToken) {
-        return res.status(400).json({ error: "Google idToken is required" });
-      }
-
-      const ticket = await googleClient.verifyIdToken({
-        idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-
-      const payload = ticket.getPayload();
-
-      if (!payload?.email || !payload.sub) {
-        return res.status(401).json({ error: "Invalid Google token" });
-      }
-
-      const email = payload.email.toLowerCase();
-      let user = await User.findOne({ email });
-
-      if (!user) {
-        let baseUsername = (payload.name || email.split("@")[0] || "google_user")
-          .trim()
-          .replace(/\s+/g, "_")
-          .toLowerCase();
-
-        if (baseUsername.length < 3) {
-          baseUsername = `user_${Date.now()}`;
-        }
-
-        let uniqueUsername = baseUsername;
-        let counter = 1;
-
-        while (await User.findOne({ username: uniqueUsername })) {
-          uniqueUsername = `${baseUsername}_${counter++}`;
-        }
-
-        user = await User.create({
-          username: uniqueUsername,
-          email,
-          authProvider: "google",
-          providerId: payload.sub,
-          profileImage: payload.picture || undefined,
-        });
-      } else {
-        if (!user.authProvider) {
-          user.authProvider = "google";
-        }
-
-        if (!user.providerId) {
-          user.providerId = payload.sub;
-        }
-
-        if (!user.profileImage && payload.picture) {
-          user.profileImage = payload.picture;
-        }
-
-        await user.save();
-      }
-
-      const { accessToken, refreshToken } = await this.issueTokensAndSave(user);
-
-      return res.json({
-        ...this.buildUserResponse(user),
-        accessToken,
-        refreshToken,
-      });
-    } catch (err) {
-      console.error("תקלה בכניסה עם גוגל:", (err as Error).message);
-      return res.status(401).json({ error: "Google authentication failed" });
+    if (!idToken) {
+      return res.status(400).json({ error: "Google idToken is required" });
     }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload?.email || !payload.sub) {
+      return res.status(401).json({ error: "Invalid Google token" });
+    }
+
+    const email = payload.email.toLowerCase();
+
+    const existingUserByEmail = await User.findOne({ email });
+    if (existingUserByEmail) {
+      return res.status(409).json({
+        error: "A Google account with this email already exists. Please login.",
+      });
+    }
+
+    let baseUsername = (payload.name || email.split("@")[0] || "google_user")
+      .trim()
+      .replace(/\s+/g, "_")
+      .toLowerCase();
+
+    if (baseUsername.length < 3) {
+      baseUsername = `user_${Date.now()}`;
+    }
+
+    let uniqueUsername = baseUsername;
+    let counter = 1;
+
+    while (await User.findOne({ username: uniqueUsername })) {
+      uniqueUsername = `${baseUsername}_${counter++}`;
+    }
+
+    const user = await User.create({
+      username: uniqueUsername,
+      email,
+      authProvider: "google",
+      providerId: payload.sub,
+      profileImage: payload.picture || undefined,
+    });
+
+    const { accessToken, refreshToken } = await this.issueTokensAndSave(user);
+
+    return res.status(201).json({
+      ...this.buildUserResponse(user),
+      accessToken,
+      refreshToken,
+    });
+  } catch (err) {
+    console.error("תקלה בהרשמה עם גוגל:", (err as Error).message);
+    return res.status(401).json({ error: "Google registration failed" });
   }
+}
+
+ async googleLogin(req: AuthRequest, res: Response) {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ error: "Google idToken is required" });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload?.email || !payload.sub) {
+      return res.status(401).json({ error: "Invalid Google token" });
+    }
+
+    const email = payload.email.toLowerCase();
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "No account exists for this Google user. Please register first.",
+      });
+    }
+
+    if (user.authProvider && user.authProvider !== "google") {
+      return res.status(401).json({
+        error: "This account is not registered with Google login.",
+      });
+    }
+
+    if (!user.authProvider) {
+      user.authProvider = "google";
+    }
+
+    if (!user.providerId) {
+      user.providerId = payload.sub;
+    }
+
+    if (!user.profileImage && payload.picture) {
+      user.profileImage = payload.picture;
+    }
+
+    await user.save();
+
+    const { accessToken, refreshToken } = await this.issueTokensAndSave(user);
+
+    return res.json({
+      ...this.buildUserResponse(user),
+      accessToken,
+      refreshToken,
+    });
+  } catch (err) {
+    console.error("תקלה בכניסה עם גוגל:", (err as Error).message);
+    return res.status(401).json({ error: "Google authentication failed" });
+  }
+}
 
   async refreshToken(req: AuthRequest, res: Response) {
     try {
