@@ -377,22 +377,26 @@ describe("Posts API", () => {
       expect(typeof res.body.details.limit).toBe("string");
     });
 
-    test("rejects invalid date range when dateFrom is after dateTo", async () => {
+    test("ignores legacy filters and sort without failing", async () => {
       const res = await request(app)
         .post("/posts/search")
         .set("Authorization", `Bearer ${searchAccessToken}`)
         .send({
           query: "post",
+          sort: "newest",
           filters: {
             dateFrom: "2026-03-17T23:59:59.999Z",
             dateTo: "2026-03-01T00:00:00.000Z",
+            createdBy: user1Id,
           },
         });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.body.error).toBe("Invalid request");
-      expect(res.body.details).toBeDefined();
-      expect(typeof res.body.details.dateRange).toBe("string");
+      expect(res.statusCode).toBe(200);
+      expect(res.body.meta.sortApplied).toBe("relevance");
+      expect(res.body.meta.filtersApplied).toEqual({});
+      expect(res.body.meta.parsedIntent.createdBy).toBeNull();
+      expect(res.body.meta.parsedIntent.dateFrom).toBeNull();
+      expect(res.body.meta.parsedIntent.dateTo).toBeNull();
     });
   });
 });

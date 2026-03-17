@@ -1,6 +1,7 @@
 import postController from "../controllers/postController";
 import { Comment } from "../models/Comment";
 import { Post } from "../models/Post";
+import * as postSearchService from "../services/postSearchService";
 
 const mockRes = () => {
   const res: any = {};
@@ -198,5 +199,59 @@ describe("PostController unit tests", () => {
     expect(res.json).toHaveBeenCalledWith({
       error: "לא הצלחנו להביא את הפוסטים לפי שליח",
     });
+  });
+
+  test("searchPosts - validation error => 400", async () => {
+    const req: any = { body: {} };
+    const res = mockRes();
+
+    jest.spyOn(postSearchService, "searchPosts").mockRejectedValue(
+      new postSearchService.SearchValidationError({
+        query: "query is required",
+      }),
+    );
+
+    await (postController as any).searchPosts(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Invalid request",
+      details: { query: "query is required" },
+    });
+  });
+
+  test("searchPosts - success delegates to service => 200", async () => {
+    const req: any = { body: { query: "docker" } };
+    const res = mockRes();
+    const payload = {
+      items: [],
+      page: 1,
+      limit: 20,
+      total: 0,
+      hasMore: false,
+      meta: {
+        fallbackUsed: true,
+        sortApplied: "relevance",
+        filtersApplied: {},
+        parsedIntent: {
+          keywords: ["docker"],
+          mustInclude: [],
+          exclude: [],
+          createdBy: null,
+          dateFrom: null,
+          dateTo: null,
+          sortBy: "relevance",
+        },
+      },
+    };
+
+    jest
+      .spyOn(postSearchService, "searchPosts")
+      .mockResolvedValue(payload as any);
+
+    await (postController as any).searchPosts(req, res);
+
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(payload);
   });
 });
