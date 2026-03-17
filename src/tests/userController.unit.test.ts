@@ -52,7 +52,9 @@ describe("UserController unit tests", () => {
     jest.spyOn(User, "find").mockImplementation(
       () =>
         ({
-          select: jest.fn().mockResolvedValue([{ _id: "u1", username: "test" }]),
+          select: jest
+            .fn()
+            .mockResolvedValue([{ _id: "u1", username: "test" }]),
         }) as any,
     );
 
@@ -184,7 +186,9 @@ describe("UserController unit tests", () => {
     await userController.getMe(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "Failed to get current user" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Failed to get current user",
+    });
   });
 
   test("getUserPosts - missing user id => 400", async () => {
@@ -242,7 +246,9 @@ describe("UserController unit tests", () => {
     await userController.getUserPosts(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "Failed to get user posts" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Failed to get user posts",
+    });
   });
 
   test("register - missing fields => 400", async () => {
@@ -256,7 +262,7 @@ describe("UserController unit tests", () => {
   });
 
   test("register - existing user => 409", async () => {
-    const req: any = { body: { username: "u", email: "e", password: "p" } };
+    const req: any = { body: { username: "u", password: "p" } };
     const res = mockRes();
 
     jest.spyOn(User, "findOne").mockResolvedValue({} as any);
@@ -265,13 +271,13 @@ describe("UserController unit tests", () => {
 
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({
-      error: "User with this email or username already exists",
+      error: "User with this username already exists",
     });
   });
 
   test("register - success => 201", async () => {
     const req: any = {
-      body: { username: "u", email: "E@MAIL.COM", password: "p" },
+      body: { username: "u", password: "p" },
     };
     const res = mockRes();
 
@@ -309,7 +315,7 @@ describe("UserController unit tests", () => {
   });
 
   test("register - create error => 400", async () => {
-    const req: any = { body: { username: "u", email: "e", password: "p" } };
+    const req: any = { body: { username: "u", password: "p" } };
     const res = mockRes();
 
     jest.spyOn(User, "findOne").mockResolvedValue(null as any);
@@ -324,19 +330,19 @@ describe("UserController unit tests", () => {
   });
 
   test("login - missing fields => 400", async () => {
-    const req: any = { body: { email: "e" } };
+    const req: any = { body: { username: "u" } };
     const res = mockRes();
 
     await userController.login(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
-      error: "Email and password are required",
+      error: "Username and password are required",
     });
   });
 
   test("login - invalid email => 401", async () => {
-    const req: any = { body: { email: "e", password: "p" } };
+    const req: any = { body: { username: "u", password: "p" } };
     const res = mockRes();
 
     jest.spyOn(User, "findOne").mockResolvedValue(null as any);
@@ -345,12 +351,12 @@ describe("UserController unit tests", () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
-      error: "Invalid email or password",
+      error: "Invalid username or password",
     });
   });
 
   test("login - non-local provider => 401", async () => {
-    const req: any = { body: { email: "e", password: "p" } };
+    const req: any = { body: { username: "u", password: "p" } };
     const res = mockRes();
 
     jest.spyOn(User, "findOne").mockResolvedValue({
@@ -361,7 +367,7 @@ describe("UserController unit tests", () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
-      error: "Invalid email or password",
+      error: "Invalid username or password",
     });
   });
 
@@ -370,7 +376,7 @@ describe("UserController unit tests", () => {
       authProvider: "local",
       comparePassword: jest.fn().mockResolvedValue(false),
     };
-    const req: any = { body: { email: "e", password: "p" } };
+    const req: any = { body: { username: "u", password: "p" } };
     const res = mockRes();
 
     jest.spyOn(User, "findOne").mockResolvedValue(fakeUser as any);
@@ -379,12 +385,12 @@ describe("UserController unit tests", () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
-      error: "Invalid email or password",
+      error: "Invalid username or password",
     });
   });
 
   test("login - success => 200", async () => {
-    const req: any = { body: { email: "E@MAIL.COM", password: "p" } };
+    const req: any = { body: { username: "u", password: "p" } };
     const res = mockRes();
 
     const fakeUser: any = {
@@ -418,7 +424,7 @@ describe("UserController unit tests", () => {
   });
 
   test("login - error => 500", async () => {
-    const req: any = { body: { email: "e", password: "p" } };
+    const req: any = { body: { username: "u", password: "p" } };
     const res = mockRes();
 
     jest.spyOn(User, "findOne").mockRejectedValue(new Error("boom"));
@@ -436,7 +442,9 @@ describe("UserController unit tests", () => {
     await userController.googleLogin(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Google idToken is required" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Google idToken is required",
+    });
   });
 
   test("googleLogin - invalid payload => 401", async () => {
@@ -621,7 +629,9 @@ describe("UserController unit tests", () => {
     const req: any = { body: { refreshToken: "oldToken" } };
     const res = mockRes();
 
-    jest.spyOn(auth, "verifyRefreshToken").mockReturnValue({ userId: "u1" } as any);
+    jest
+      .spyOn(auth, "verifyRefreshToken")
+      .mockReturnValue({ userId: "u1" } as any);
     jest.spyOn(auth, "generateAccessToken").mockReturnValue("newAccess");
     jest.spyOn(auth, "generateRefreshToken").mockReturnValue("newRefresh");
 
@@ -728,7 +738,7 @@ describe("UserController unit tests", () => {
     await userController.logout(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "לא הצלחנו ליצאת" });
+    expect(res.json).toHaveBeenCalledWith({ error: "לא הצלחנו לצאת" });
   });
 
   test("updateUser - forbidden => 403", async () => {
@@ -751,6 +761,8 @@ describe("UserController unit tests", () => {
       body: { username: "newname" },
     };
     const res = mockRes();
+
+    jest.spyOn(User, "findOne").mockResolvedValue(null as any);
 
     jest.spyOn(User, "findByIdAndUpdate").mockImplementation(
       () =>
@@ -777,6 +789,8 @@ describe("UserController unit tests", () => {
       body: { username: "x" },
     };
     const res = mockRes();
+
+    jest.spyOn(User, "findOne").mockResolvedValue(null as any);
 
     jest
       .spyOn(User, "findByIdAndUpdate")
@@ -882,6 +896,8 @@ describe("UserController unit tests", () => {
       body: { username: "newme" },
     };
     const res = mockRes();
+
+    jest.spyOn(User, "findOne").mockResolvedValue(null as any);
 
     jest.spyOn(User, "findByIdAndUpdate").mockImplementation(
       () =>
