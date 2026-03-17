@@ -59,6 +59,7 @@ class PostController extends BaseController {
       title: post.title,
       content: post.content,
       createdBy: post.createdBy,
+      createdAt: post.createdAt,
       image: post.image ?? null,
       likes,
     };
@@ -262,7 +263,10 @@ class PostController extends BaseController {
       }
 
       this.removePostImage((deleted as IPost).image ?? null);
-      await PostLike.deleteMany({ postId: req.params.postId });
+      await Promise.all([
+        Comment.deleteMany({ postId: req.params.postId }),
+        PostLike.deleteMany({ postId: req.params.postId }),
+      ]);
 
       return res.json({ ok: true });
     } catch (err) {

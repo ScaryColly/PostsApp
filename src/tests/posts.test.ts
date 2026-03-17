@@ -8,6 +8,7 @@ import { Comment } from "../models/Comment";
 import { Post } from "../models/Post";
 import { PostLike } from "../models/PostLike";
 import { User } from "../models/User";
+import * as llmPostSearchParser from "../services/llmPostSearchParser";
 
 type PostSeed = {
   createdBy: string;
@@ -85,6 +86,8 @@ describe("Posts API", () => {
         title: post.title,
         content: post.content,
       });
+      expect(Number.isNaN(Date.parse(res.body.createdAt))).toBe(false);
+      expect(res.body.updatedAt).toBeUndefined();
       post._id = res.body._id;
     }
   });
@@ -109,6 +112,7 @@ describe("Posts API", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.length).toBe(postsData.length + 1);
     expect(res.body[0].likes).toEqual([]);
+    expect(Number.isNaN(Date.parse(res.body[0].createdAt))).toBe(false);
   });
 
   test("GET /posts?createdBy=<userId> - filter", async () => {
@@ -128,6 +132,7 @@ describe("Posts API", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body._id).toBe(id);
     expect(res.body.likes).toEqual([]);
+    expect(res.body.updatedAt).toBeUndefined();
   });
 
   test("POST /posts/:postId/like - missing userId => 400", async () => {
@@ -252,12 +257,24 @@ describe("Posts API", () => {
   test("DELETE /posts/:postId - delete", async () => {
     const id = postsData[2]._id!;
 
+    await Comment.create({
+      postId: id,
+      createdBy: user1Id,
+      message: "comment to delete with post",
+    });
+    await PostLike.create({ postId: id, userId: user1Id });
+
     const res = await request(app).delete("/posts/" + id);
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ ok: true });
 
     const deletedPost = await Post.findById(id);
+    const deletedComments = await Comment.countDocuments({ postId: id });
+    const deletedLikes = await PostLike.countDocuments({ postId: id });
+
     expect(deletedPost).toBeNull();
+    expect(deletedComments).toBe(0);
+    expect(deletedLikes).toBe(0);
   });
 
   test("DELETE /posts/:postId - delete post with image removes file", async () => {
@@ -395,8 +412,101 @@ describe("Posts API", () => {
       expect(res.body.meta.sortApplied).toBe("relevance");
       expect(res.body.meta.filtersApplied).toEqual({});
       expect(res.body.meta.parsedIntent.createdBy).toBeNull();
-      expect(res.body.meta.parsedIntent.dateFrom).toBeNull();
-      expect(res.body.meta.parsedIntent.dateTo).toBeNull();
+      expect(res.body.meta.parsedIntent.createdAt).toBeNull();
+    });
+
+    test("supports createdAt search intent for yesterday", async () => {
+      const yesterdayIso = "2026-03-16T08:00:00.000Z";
+
+      await Post.collection.insertMany([
+        {
+          createdBy: user1Id,
+          title: "Yesterday match",
+          content: "should be returned",
+          image: null,
+          createdAt: new Date("2026-03-16T12:00:00.000Z"),
+        },
+        {
+          createdBy: user1Id,
+          title: "Today post",
+          content: "should not be returned",
+          image: null,
+          createdAt: new Date("2026-03-17T12:00:00.000Z"),
+        },
+      ]);
+
+      jest
+        .spyOn(llmPostSearchParser, "parseSearchIntentWithLlm")
+        .mockResolvedValue({
+          keywords: [],
+          mustInclude: [],
+          exclude: [],
+          createdBy: null,
+          createdAt: yesterdayIso,
+          sortBy: "relevance",
+        });
+
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({ query: "all posts from yesterday" });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.meta.parsedIntent.createdAt).toBe(yesterdayIso);
+      expect(res.body.meta.filtersApplied).toEqual({ createdAt: yesterdayIso });
+      expect(
+        res.body.items.some((item: any) => item.title === "Yesterday match"),
+      ).toBe(true);
+      expect(
+        res.body.items.some((item: any) => item.title === "Today post"),
+      ).toBe(false);
+    });
+
+    test("returns all today's posts for Hebrew date-only query", async () => {
+      const todayIso = "2026-03-17T07:00:00.000Z";
+
+      await Post.collection.insertMany([
+        {
+          createdBy: user1Id,
+          title: "Today Alpha",
+          content: "first today item",
+          image: null,
+          createdAt: new Date("2026-03-17T09:00:00.000Z"),
+        },
+        {
+          createdBy: user1Id,
+          title: "Today Beta",
+          content: "second today item",
+          image: null,
+          createdAt: new Date("2026-03-17T10:30:00.000Z"),
+        },
+      ]);
+
+      jest
+        .spyOn(llmPostSearchParser, "parseSearchIntentWithLlm")
+        .mockResolvedValue({
+          keywords: ["פורסם", "היום"],
+          mustInclude: ["פורסם"],
+          exclude: [],
+          createdBy: null,
+          createdAt: todayIso,
+          sortBy: "relevance",
+        });
+
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({ query: "מה שפורסם היום" });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.meta.parsedIntent.createdAt).toBe(todayIso);
+      expect(res.body.meta.parsedIntent.keywords).toEqual([]);
+      expect(
+        res.body.items.some((item: any) => item.title === "Today Alpha"),
+      ).toBe(true);
+      expect(
+        res.body.items.some((item: any) => item.title === "Today Beta"),
+      ).toBe(true);
     });
   });
 });
