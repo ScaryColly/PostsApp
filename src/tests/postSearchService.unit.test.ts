@@ -159,4 +159,223 @@ describe("postSearchService", () => {
     expect(result.meta.parsedIntent.dateTo).toBeNull();
     expect(modelFind).toHaveBeenCalled();
   });
+
+  test("searchPosts - multi-word keyword matches post with prefixed variant (מערכת עיכול → מערכת העיכול)", async () => {
+    const digestivePost = {
+      id: "pDigest",
+      _id: "pDigest",
+      title: "מערכת העיכול",
+      content: "פוסט על מערכת העיכול",
+      createdBy: "u1",
+      image: null,
+      createdAt: new Date("2026-03-15T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-15T00:00:00.000Z"),
+    };
+
+    const modelFind = jest.fn().mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        skip: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue([digestivePost]),
+        }),
+      }),
+    });
+
+    const deps = {
+      model: {
+        find: modelFind,
+        countDocuments: jest.fn().mockResolvedValue(1),
+      },
+      parseIntentWithLlm: jest.fn().mockResolvedValue({
+        keywords: ["מערכת עיכול"],
+        mustInclude: [],
+        exclude: [],
+      }),
+      buildLikesMap: jest.fn().mockResolvedValue(new Map()),
+      serializePost: jest.fn().mockImplementation((post, likes) => ({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        createdBy: post.createdBy,
+        image: post.image,
+        likes,
+      })),
+    };
+
+    await searchPosts({ query: "מערכת עיכול" }, deps as any);
+
+    const findArg = modelFind.mock.calls[0][0];
+    const regexes: RegExp[] = (
+      findArg.$or as Array<{ title?: RegExp; content?: RegExp }>
+    )
+      .map((e) => e.title ?? e.content)
+      .filter((r): r is RegExp => r instanceof RegExp);
+
+    const anyMatchesWithPrefix = regexes.some((r) => r.test("מערכת העיכול"));
+    expect(anyMatchesWithPrefix).toBe(true);
+  });
+
+  test("searchPosts - semantic keywords are matched with OR logic", async () => {
+    const posts: any[] = [];
+
+    const modelFind = jest.fn().mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        skip: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue(posts),
+        }),
+      }),
+    });
+
+    const deps = {
+      model: {
+        find: modelFind,
+        countDocuments: jest.fn().mockResolvedValue(0),
+      },
+      parseIntentWithLlm: jest.fn().mockResolvedValue({
+        keywords: ["אנטומיה", "כף יד", "מערכת העיכול"],
+        mustInclude: [],
+        exclude: [],
+      }),
+      buildLikesMap: jest.fn().mockResolvedValue(new Map()),
+      serializePost: jest.fn(),
+    };
+
+    await searchPosts({ query: "כל הפוסטים שקשורים לאנטומיה" }, deps as any);
+
+    const findArg = modelFind.mock.calls[0][0];
+    expect(Array.isArray(findArg.$or)).toBe(true);
+    expect(findArg.$or.length).toBeGreaterThanOrEqual(6);
+    expect(findArg.$and).toBeUndefined();
+  });
+
+  test("searchPosts - semantic fallback ranks posts for any subject when lexical yields no match", async () => {
+    const lexicalFindLimit = jest.fn().mockResolvedValue([]);
+    const lexicalFindSkip = jest
+      .fn()
+      .mockReturnValue({ limit: lexicalFindLimit });
+    const lexicalFindSort = jest
+      .fn()
+      .mockReturnValue({ skip: lexicalFindSkip });
+
+    const semanticCandidates = [
+      {
+        id: "pA",
+        _id: "pA",
+        title: "מערכת העיכול",
+        content: "פירוט על איברי מערכת העיכול",
+        createdBy: "u1",
+        image: null,
+        createdAt: new Date("2026-03-12T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-12T00:00:00.000Z"),
+      },
+      {
+        id: "pB",
+        _id: "pB",
+        title: "כף היד",
+        content: "עצמות ושרירים בכף היד",
+        createdBy: "u1",
+        image: null,
+        createdAt: new Date("2026-03-11T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-11T00:00:00.000Z"),
+      },
+    ];
+
+    const semanticFindLimit = jest.fn().mockResolvedValue(semanticCandidates);
+    const semanticFindSkip = jest
+      .fn()
+      .mockReturnValue({ limit: semanticFindLimit });
+    const semanticFindSort = jest
+      .fn()
+      .mockReturnValue({ skip: semanticFindSkip });
+
+    const modelFind = jest
+      .fn()
+      .mockReturnValueOnce({ sort: lexicalFindSort })
+      .mockReturnValueOnce({ sort: semanticFindSort });
+
+    const deps = {
+      model: {
+        find: modelFind,
+        countDocuments: jest.fn().mockResolvedValue(0),
+      },
+      parseIntentWithLlm: jest.fn().mockResolvedValue({
+        keywords: ["אנטומיה"],
+        mustInclude: [],
+        exclude: [],
+      }),
+      embedTexts: jest.fn().mockResolvedValue([
+        [1, 0],
+        [0.92, 0.08],
+        [0.87, 0.13],
+      ]),
+      buildLikesMap: jest.fn().mockResolvedValue(new Map()),
+      serializePost: jest.fn().mockImplementation((post, likes) => ({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        createdBy: post.createdBy,
+        image: post.image,
+        likes,
+      })),
+    };
+
+    const result = await searchPosts({ query: "אנטומיה" }, deps as any);
+
+    expect(result.total).toBe(2);
+    expect(result.items.map((p) => p.id)).toEqual(["pA", "pB"]);
+    expect(deps.embedTexts).toHaveBeenCalled();
+  });
+
+  test("searchPosts - fallback strips common Hebrew filler words", async () => {
+    const posts: any[] = [];
+
+    const deps = {
+      model: {
+        find: jest.fn().mockReturnValue({
+          sort: jest.fn().mockReturnValue({
+            skip: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue(posts),
+            }),
+          }),
+        }),
+        countDocuments: jest.fn().mockResolvedValue(0),
+      },
+      parseIntentWithLlm: jest.fn().mockRejectedValue(new Error("down")),
+      buildLikesMap: jest.fn().mockResolvedValue(new Map()),
+      serializePost: jest.fn(),
+    };
+
+    const result = await searchPosts(
+      { query: "כל הפוסטים שקשורים לאנטומיה" },
+      deps as any,
+    );
+
+    expect(result.meta.parsedIntent.keywords).toContain("לאנטומיה");
+    expect(result.meta.parsedIntent.keywords).not.toContain("כל");
+    expect(result.meta.parsedIntent.keywords).not.toContain("פוסטים");
+    expect(result.meta.parsedIntent.keywords).not.toContain("שקשורים");
+  });
+
+  test("searchPosts - fallback does not strip intrinsic leading letters", async () => {
+    const deps = {
+      model: {
+        find: jest.fn().mockReturnValue({
+          sort: jest.fn().mockReturnValue({
+            skip: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([]),
+            }),
+          }),
+        }),
+        countDocuments: jest.fn().mockResolvedValue(0),
+      },
+      parseIntentWithLlm: jest.fn().mockRejectedValue(new Error("down")),
+      embedTexts: jest.fn().mockResolvedValue([[1, 0]]),
+      buildLikesMap: jest.fn().mockResolvedValue(new Map()),
+      serializePost: jest.fn(),
+    };
+
+    const result = await searchPosts({ query: "מחשב" }, deps as any);
+
+    expect(result.meta.parsedIntent.keywords).toContain("מחשב");
+    expect(result.meta.parsedIntent.keywords).not.toContain("חשב");
+  });
 });
