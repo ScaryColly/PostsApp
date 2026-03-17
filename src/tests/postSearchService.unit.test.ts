@@ -253,6 +253,92 @@ describe("postSearchService", () => {
     );
   });
 
+  test("searchPosts - explicit Hebrew date phrase applies createdAt day only", async () => {
+    const createdAt = "2026-03-17T10:00:00.000Z";
+    const modelFind = jest.fn().mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        skip: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue([]),
+        }),
+      }),
+    });
+
+    const deps = {
+      model: {
+        find: modelFind,
+        countDocuments: jest.fn().mockResolvedValue(0),
+      },
+      parseIntentWithLlm: jest.fn().mockResolvedValue({
+        keywords: ["פורסם", "ב17", "במרץ"],
+        mustInclude: ["פורסם"],
+        exclude: [],
+        createdAt,
+      }),
+      buildLikesMap: jest.fn().mockResolvedValue(new Map()),
+      serializePost: jest.fn(),
+    };
+
+    const result = await searchPosts(
+      { query: "מה שפורסם ב17 במרץ" },
+      deps as any,
+    );
+
+    const lexicalFindArg = modelFind.mock.calls[0][0];
+    expect(result.meta.parsedIntent.keywords).toEqual([]);
+    expect(result.meta.parsedIntent.mustInclude).toEqual([]);
+    expect(lexicalFindArg.$or).toBeUndefined();
+    expect(lexicalFindArg.$and).toBeUndefined();
+    expect(lexicalFindArg.createdAt.$gte.toISOString()).toBe(
+      "2026-03-17T00:00:00.000Z",
+    );
+    expect(lexicalFindArg.createdAt.$lt.toISOString()).toBe(
+      "2026-03-18T00:00:00.000Z",
+    );
+  });
+
+  test("searchPosts - 'כל הפוסטים שפורסמו היום' is treated as date-only", async () => {
+    const createdAt = "2026-03-17T05:00:00.000Z";
+    const modelFind = jest.fn().mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        skip: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue([]),
+        }),
+      }),
+    });
+
+    const deps = {
+      model: {
+        find: modelFind,
+        countDocuments: jest.fn().mockResolvedValue(0),
+      },
+      parseIntentWithLlm: jest.fn().mockResolvedValue({
+        keywords: ["שפורסמו", "היום"],
+        mustInclude: ["שפורסמו"],
+        exclude: [],
+        createdAt,
+      }),
+      buildLikesMap: jest.fn().mockResolvedValue(new Map()),
+      serializePost: jest.fn(),
+    };
+
+    const result = await searchPosts(
+      { query: "כל הפוסטים שפורסמו היום" },
+      deps as any,
+    );
+
+    const lexicalFindArg = modelFind.mock.calls[0][0];
+    expect(result.meta.parsedIntent.keywords).toEqual([]);
+    expect(result.meta.parsedIntent.mustInclude).toEqual([]);
+    expect(lexicalFindArg.$or).toBeUndefined();
+    expect(lexicalFindArg.$and).toBeUndefined();
+    expect(lexicalFindArg.createdAt.$gte.toISOString()).toBe(
+      "2026-03-17T00:00:00.000Z",
+    );
+    expect(lexicalFindArg.createdAt.$lt.toISOString()).toBe(
+      "2026-03-18T00:00:00.000Z",
+    );
+  });
+
   test("searchPosts - multi-word keyword matches post with prefixed variant (מערכת עיכול → מערכת העיכול)", async () => {
     const digestivePost = {
       id: "pDigest",
@@ -338,6 +424,63 @@ describe("postSearchService", () => {
     expect(Array.isArray(findArg.$or)).toBe(true);
     expect(findArg.$or.length).toBeGreaterThanOrEqual(6);
     expect(findArg.$and).toBeUndefined();
+  });
+
+  test("searchPosts - keeps lexical-only results when lexical matches exist", async () => {
+    const lexicalPosts = [
+      {
+        id: "p1",
+        _id: "p1",
+        title: "אנטומיה כללית",
+        content: "סקירה כללית",
+        createdBy: "u1",
+        image: null,
+        createdAt: new Date("2026-03-17T00:00:00.000Z"),
+      },
+    ];
+
+    const lexicalFindLimit = jest.fn().mockResolvedValue(lexicalPosts);
+    const lexicalFindSkip = jest
+      .fn()
+      .mockReturnValue({ limit: lexicalFindLimit });
+    const lexicalFindSort = jest
+      .fn()
+      .mockReturnValue({ skip: lexicalFindSkip });
+    const modelFind = jest.fn().mockReturnValue({ sort: lexicalFindSort });
+
+    const deps = {
+      model: {
+        find: modelFind,
+        countDocuments: jest.fn().mockResolvedValue(1),
+      },
+      parseIntentWithLlm: jest.fn().mockResolvedValue({
+        keywords: ["אנטומיה"],
+        mustInclude: [],
+        exclude: [],
+      }),
+      embedTexts: jest.fn().mockResolvedValue([
+        [1, 0],
+        [0.12, 0.88],
+      ]),
+      buildLikesMap: jest.fn().mockResolvedValue(new Map()),
+      serializePost: jest.fn().mockImplementation((post, likes) => ({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        createdBy: post.createdBy,
+        image: post.image,
+        likes,
+      })),
+    };
+
+    const result = await searchPosts(
+      { query: "אנטומיה", limit: 20 },
+      deps as any,
+    );
+
+    expect(result.items.map((item) => item.id)).toEqual(["p1"]);
+    expect(deps.embedTexts).not.toHaveBeenCalled();
+    expect(modelFind).toHaveBeenCalledTimes(1);
   });
 
   test("searchPosts - semantic fallback ranks posts for any subject when lexical yields no match", async () => {
