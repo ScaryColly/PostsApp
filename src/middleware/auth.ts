@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
 export interface AuthRequest extends Request {
@@ -17,7 +17,8 @@ const ACCESS_EXPIRES_IN: jwt.SignOptions["expiresIn"] =
   (process.env.JWT_TOKEN_EXPIRATION as jwt.SignOptions["expiresIn"]) || "15m";
 
 const REFRESH_EXPIRES_IN: jwt.SignOptions["expiresIn"] =
-  (process.env.JWT_REFRESH_TOKEN_EXPIRATION as jwt.SignOptions["expiresIn"]) || "7d";
+  (process.env.JWT_REFRESH_TOKEN_EXPIRATION as jwt.SignOptions["expiresIn"]) ||
+  "7d";
 
 export const authMiddleware = (
   req: AuthRequest,

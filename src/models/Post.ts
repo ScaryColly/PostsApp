@@ -4,6 +4,7 @@ export interface IPost {
   createdBy: string;
   title: string;
   content: string;
+  image?: string | null;
 }
 
 const PostSchema = new Schema<IPost>(
@@ -11,6 +12,7 @@ const PostSchema = new Schema<IPost>(
     createdBy: { type: String, required: true },
     title: { type: String, required: true },
     content: { type: String, required: true },
+    image: { type: String, default: null },
   },
   { timestamps: true },
 );
