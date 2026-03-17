@@ -1,5 +1,5 @@
-import mongoose, { Schema, type Model, type Document } from "mongoose";
 import bcrypt from "bcrypt";
+import mongoose, { Schema, type Document, type Model } from "mongoose";
 
 export type AuthProvider = "local" | "google";
 
@@ -26,9 +26,17 @@ const UserSchema = new Schema<IUser>(
     email: {
       type: String,
       required: false,
-      unique: true,
       trim: true,
       lowercase: true,
+      default: undefined,
+      set: (value: unknown) => {
+        if (value === null || value === undefined) {
+          return undefined;
+        }
+
+        const normalized = String(value).trim();
+        return normalized.length === 0 ? undefined : normalized;
+      },
       match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     },
     password: {
@@ -57,6 +65,16 @@ const UserSchema = new Schema<IUser>(
     },
   },
   { timestamps: true },
+);
+
+UserSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      email: { $type: "string" },
+    },
+  },
 );
 
 UserSchema.pre<IUser>("save", async function () {

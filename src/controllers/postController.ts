@@ -4,6 +4,10 @@ import path from "path";
 import { Comment } from "../models/Comment";
 import { IPost, Post } from "../models/Post";
 import { PostLike } from "../models/PostLike";
+import {
+  searchPosts as searchPostsService,
+  SearchValidationError,
+} from "../services/postSearchService";
 import BaseController from "./baseController";
 
 class PostController extends BaseController {
@@ -58,6 +62,27 @@ class PostController extends BaseController {
       image: post.image ?? null,
       likes,
     };
+  }
+
+  async searchPosts(req: Request, res: Response) {
+    try {
+      const result = await searchPostsService(req.body, {
+        model: this.model,
+        buildLikesMap: this.buildLikesMap.bind(this),
+        serializePost: this.serializePost.bind(this),
+      });
+
+      return res.json(result);
+    } catch (err) {
+      if (err instanceof SearchValidationError) {
+        return res
+          .status(400)
+          .json({ error: "Invalid request", details: err.details });
+      }
+
+      console.error("Failed to search posts:", (err as Error).message);
+      return res.status(500).json({ error: "Failed to search posts" });
+    }
   }
 
   async getAllPosts(req: Request, res: Response) {
