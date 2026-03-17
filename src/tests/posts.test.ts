@@ -508,5 +508,119 @@ describe("Posts API", () => {
         res.body.items.some((item: any) => item.title === "Today Beta"),
       ).toBe(true);
     });
+
+    test("returns all posts created on explicit Hebrew date", async () => {
+      const march17Iso = "2026-03-17T00:00:00.000Z";
+
+      await Post.collection.insertMany([
+        {
+          createdBy: user1Id,
+          title: "March17 One",
+          content: "first match",
+          image: null,
+          createdAt: new Date("2026-03-17T06:00:00.000Z"),
+        },
+        {
+          createdBy: user1Id,
+          title: "March17 Two",
+          content: "second match",
+          image: null,
+          createdAt: new Date("2026-03-17T20:00:00.000Z"),
+        },
+        {
+          createdBy: user1Id,
+          title: "March18 Other",
+          content: "should not match",
+          image: null,
+          createdAt: new Date("2026-03-18T09:00:00.000Z"),
+        },
+      ]);
+
+      jest
+        .spyOn(llmPostSearchParser, "parseSearchIntentWithLlm")
+        .mockResolvedValue({
+          keywords: ["פורסם", "ב17", "במרץ"],
+          mustInclude: ["פורסם"],
+          exclude: [],
+          createdBy: null,
+          createdAt: march17Iso,
+          sortBy: "relevance",
+        });
+
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({ query: "מה שפורסם ב17 במרץ" });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.meta.parsedIntent.createdAt).toBe(march17Iso);
+      expect(res.body.meta.parsedIntent.keywords).toEqual([]);
+      expect(
+        res.body.items.some((item: any) => item.title === "March17 One"),
+      ).toBe(true);
+      expect(
+        res.body.items.some((item: any) => item.title === "March17 Two"),
+      ).toBe(true);
+      expect(
+        res.body.items.some((item: any) => item.title === "March18 Other"),
+      ).toBe(false);
+    });
+
+    test("returns all today's posts for 'כל הפוסטים שפורסמו היום'", async () => {
+      const todayIso = "2026-03-17T00:00:00.000Z";
+
+      await Post.collection.insertMany([
+        {
+          createdBy: user1Id,
+          title: "Today Group One",
+          content: "today result 1",
+          image: null,
+          createdAt: new Date("2026-03-17T05:00:00.000Z"),
+        },
+        {
+          createdBy: user1Id,
+          title: "Today Group Two",
+          content: "today result 2",
+          image: null,
+          createdAt: new Date("2026-03-17T19:00:00.000Z"),
+        },
+        {
+          createdBy: user1Id,
+          title: "Tomorrow Group",
+          content: "not today",
+          image: null,
+          createdAt: new Date("2026-03-18T06:00:00.000Z"),
+        },
+      ]);
+
+      jest
+        .spyOn(llmPostSearchParser, "parseSearchIntentWithLlm")
+        .mockResolvedValue({
+          keywords: ["שפורסמו", "היום"],
+          mustInclude: ["שפורסמו"],
+          exclude: [],
+          createdBy: null,
+          createdAt: todayIso,
+          sortBy: "relevance",
+        });
+
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({ query: "כל הפוסטים שפורסמו היום" });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.meta.parsedIntent.createdAt).toBe(todayIso);
+      expect(res.body.meta.parsedIntent.keywords).toEqual([]);
+      expect(
+        res.body.items.some((item: any) => item.title === "Today Group One"),
+      ).toBe(true);
+      expect(
+        res.body.items.some((item: any) => item.title === "Today Group Two"),
+      ).toBe(true);
+      expect(
+        res.body.items.some((item: any) => item.title === "Tomorrow Group"),
+      ).toBe(false);
+    });
   });
 });

@@ -123,6 +123,7 @@ const HEBREW_PREFIXES = new Set(["ו", "ב", "ל", "כ", "מ", "ה", "ש"]);
 
 const SEMANTIC_CANDIDATE_LIMIT = 200;
 const SEMANTIC_MIN_SIMILARITY = 0.18;
+const SEMANTIC_SOFT_FALLBACK_LIMIT = 10;
 
 const normalizeHebrewToken = (token: string): string => {
   let normalized = token;
@@ -203,6 +204,105 @@ const addUtcDays = (date: Date, days: number): Date => {
   return nextDate;
 };
 
+const MONTH_NAME_TO_INDEX: Record<string, number> = {
+  ינואר: 0,
+  פברואר: 1,
+  מרץ: 2,
+  אפריל: 3,
+  מאי: 4,
+  יוני: 5,
+  יולי: 6,
+  אוגוסט: 7,
+  ספטמבר: 8,
+  אוקטובר: 9,
+  נובמבר: 10,
+  דצמבר: 11,
+  january: 0,
+  february: 1,
+  march: 2,
+  april: 3,
+  may: 4,
+  june: 5,
+  july: 6,
+  august: 7,
+  september: 8,
+  october: 9,
+  november: 10,
+  december: 11,
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+};
+
+const normalizeDateToken = (token: string): string =>
+  token
+    .toLowerCase()
+    .replace(/[.,/\\-]/g, "")
+    .replace(/^ב/, "")
+    .trim();
+
+const parseExplicitDayMonth = (query: string): string | null => {
+  const normalized = query
+    .toLowerCase()
+    .replace(/["'`]/g, "")
+    .replace(/[^\p{L}\p{N}\s./-]/gu, " ")
+    .trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const tokens = normalized
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  for (let i = 0; i < tokens.length - 1; i += 1) {
+    const dayMatch = tokens[i].match(/^ב?(\d{1,2})$/);
+    if (!dayMatch) {
+      continue;
+    }
+
+    const day = Number(dayMatch[1]);
+    if (!Number.isInteger(day) || day < 1 || day > 31) {
+      continue;
+    }
+
+    const monthToken = normalizeDateToken(tokens[i + 1]);
+    const monthTokenNormalizedHebrew = normalizeHebrewToken(monthToken);
+    const monthIndex =
+      MONTH_NAME_TO_INDEX[monthToken] ??
+      MONTH_NAME_TO_INDEX[monthTokenNormalizedHebrew];
+
+    if (monthIndex === undefined) {
+      continue;
+    }
+
+    const year = new Date().getUTCFullYear();
+    const date = new Date(Date.UTC(year, monthIndex, day));
+
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== monthIndex ||
+      date.getUTCDate() !== day
+    ) {
+      continue;
+    }
+
+    return date.toISOString();
+  }
+
+  return null;
+};
+
 const extractFallbackCreatedAt = (query: string): string | null => {
   const normalizedQuery = query.toLowerCase();
   const now = new Date();
@@ -213,6 +313,11 @@ const extractFallbackCreatedAt = (query: string): string | null => {
 
   if (/\btoday\b/.test(normalizedQuery) || query.includes("היום")) {
     return startOfUtcDay(now).toISOString();
+  }
+
+  const explicitDay = parseExplicitDayMonth(query);
+  if (explicitDay) {
+    return explicitDay;
   }
 
   return null;
@@ -235,14 +340,22 @@ const DATE_ONLY_TERMS = new Set([
   "publish",
   "posted",
   "post",
+  "posts",
   "todays",
   "what",
   "was",
   "were",
+  "all",
   "מה",
+  "כל",
+  "פוסטים",
+  "הפוסטים",
   "שפורסם",
   "פורסם",
-  "פורסם",
+  "שפורסמו",
+  "פורסמו",
+  "שפורסמת",
+  "פורסמת",
   "היום",
   "יום",
   "אתמול",
@@ -273,6 +386,8 @@ const isDateOnlyQuery = (query: string): boolean => {
     return false;
   }
 
+  const explicitDay = parseExplicitDayMonth(query);
+
   const hasTemporalDay =
     rawTokens.some(
       (token) =>
@@ -287,12 +402,33 @@ const isDateOnlyQuery = (query: string): boolean => {
         token === "yesterday" ||
         token === "יום" ||
         token === "אתמול",
+    ) ||
+    explicitDay !== null;
+
+  const isDayNumberToken = (token: string): boolean => {
+    const matched = token.match(/^ב?(\d{1,2})$/);
+    if (!matched) {
+      return false;
+    }
+
+    const day = Number(matched[1]);
+    return Number.isInteger(day) && day >= 1 && day <= 31;
+  };
+
+  const isMonthToken = (token: string, normalizedToken: string): boolean => {
+    const cleanToken = normalizeDateToken(token);
+    return (
+      MONTH_NAME_TO_INDEX[cleanToken] !== undefined ||
+      MONTH_NAME_TO_INDEX[normalizedToken] !== undefined
     );
+  };
 
   const allDateOnlyTerms = rawTokens.every(
     (token, index) =>
       DATE_ONLY_TERMS.has(token) ||
-      DATE_ONLY_TERMS.has(normalizedTokens[index]),
+      DATE_ONLY_TERMS.has(normalizedTokens[index]) ||
+      isDayNumberToken(token) ||
+      isMonthToken(token, normalizedTokens[index]),
   );
 
   return hasTemporalDay && allDateOnlyTerms;
@@ -387,10 +523,21 @@ const semanticFallbackSearch = async (
       post,
       score: cosineSimilarity(queryVector, vectors[index + 1] ?? []),
     }))
-    .filter((item) => item.score >= SEMANTIC_MIN_SIMILARITY)
     .sort((a, b) => b.score - a.score);
 
-  return scored.map((item) => item.post);
+  const strictMatches = scored.filter(
+    (item) => item.score >= SEMANTIC_MIN_SIMILARITY,
+  );
+
+  if (strictMatches.length > 0) {
+    return strictMatches.map((item) => item.post);
+  }
+
+  // If strict semantic similarity yields no matches, return top positive-scored candidates.
+  return scored
+    .filter((item) => item.score > 0)
+    .slice(0, SEMANTIC_SOFT_FALLBACK_LIMIT)
+    .map((item) => item.post);
 };
 
 export const parseAndValidateSearchInput = (
