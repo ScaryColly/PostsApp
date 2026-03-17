@@ -447,6 +447,18 @@ describe("UserController unit tests", () => {
     });
   });
 
+    test("googleLogin - missing token => 400", async () => {
+    const req: any = { body: {} };
+    const res = mockRes();
+
+    await userController.googleLogin(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Google idToken is required",
+    });
+  });
+
   test("googleLogin - invalid payload => 401", async () => {
     const req: any = { body: { idToken: "google-token" } };
     const res = mockRes();
@@ -461,7 +473,164 @@ describe("UserController unit tests", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Invalid Google token" });
   });
 
-  test("googleLogin - create new google user => 200", async () => {
+  test("googleLogin - user does not exist => 404", async () => {
+    const req: any = { body: { idToken: "google-token" } };
+    const res = mockRes();
+
+    mockVerifyIdToken.mockResolvedValue({
+      getPayload: () => ({
+        email: "missing@mail.com",
+        sub: "google-sub-missing",
+      }),
+    });
+
+    jest.spyOn(User, "findOne").mockResolvedValue(null as any);
+
+    await userController.googleLogin(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+       error: "No account exists for this Google user. Please register first.",
+    });
+  });
+
+  test("googleLogin - existing local user => 401", async () => {
+    const req: any = { body: { idToken: "google-token" } };
+    const res = mockRes();
+
+    mockVerifyIdToken.mockResolvedValue({
+      getPayload: () => ({
+        email: "local@mail.com",
+        sub: "google-sub-local",
+        picture: "http://img",
+      }),
+    });
+
+    jest.spyOn(User, "findOne").mockResolvedValue({
+      _id: "u2",
+      username: "localuser",
+      email: "local@mail.com",
+      authProvider: "local",
+      save: jest.fn(),
+    } as any);
+
+    await userController.googleLogin(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+       error: "This account is not registered with Google login.",
+    });
+  });
+
+  test("googleLogin - existing google user => 200", async () => {
+    const req: any = { body: { idToken: "google-token" } };
+    const res = mockRes();
+
+    mockVerifyIdToken.mockResolvedValue({
+      getPayload: () => ({
+        email: "existing@mail.com",
+        sub: "google-sub-2",
+        picture: "http://img2",
+      }),
+    });
+
+    const existingUser: any = {
+      _id: "u2",
+      username: "existing",
+      email: "existing@mail.com",
+      authProvider: "google",
+      providerId: undefined,
+      profileImage: undefined,
+      createdAt: new Date("2026-01-01"),
+      updatedAt: new Date("2026-01-01"),
+      refreshTokens: [],
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+
+    jest.spyOn(User, "findOne").mockResolvedValue(existingUser);
+    jest.spyOn(auth, "generateAccessToken").mockReturnValue("accessABC");
+    jest.spyOn(auth, "generateRefreshToken").mockReturnValue("refreshABC");
+
+    await userController.googleLogin(req, res);
+
+    expect(existingUser.providerId).toBe("google-sub-2");
+    expect(existingUser.profileImage).toBe("http://img2");
+    expect(existingUser.save).toHaveBeenCalledTimes(2);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: "u2",
+        accessToken: "accessABC",
+        refreshToken: "refreshABC",
+      }),
+    );
+  });
+
+  test("googleLogin - error => 401", async () => {
+    const req: any = { body: { idToken: "google-token" } };
+    const res = mockRes();
+
+    mockVerifyIdToken.mockRejectedValue(new Error("boom"));
+
+    await userController.googleLogin(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Google authentication failed",
+    });
+  });
+
+    test("googleRegister - missing token => 400", async () => {
+    const req: any = { body: {} };
+    const res = mockRes();
+
+    await userController.googleRegister(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Google idToken is required",
+    });
+  });
+
+  test("googleRegister - invalid payload => 401", async () => {
+    const req: any = { body: { idToken: "google-token" } };
+    const res = mockRes();
+
+    mockVerifyIdToken.mockResolvedValue({
+      getPayload: () => ({ sub: "", email: "" }),
+    });
+
+    await userController.googleRegister(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: "Invalid Google token" });
+  });
+
+  test("googleRegister - existing email => 409", async () => {
+    const req: any = { body: { idToken: "google-token" } };
+    const res = mockRes();
+
+    mockVerifyIdToken.mockResolvedValue({
+      getPayload: () => ({
+        email: "existing@mail.com",
+        sub: "google-sub-existing",
+        name: "Existing User",
+      }),
+    });
+
+    jest.spyOn(User, "findOne").mockResolvedValueOnce({
+      _id: "u1",
+      email: "existing@mail.com",
+    } as any);
+
+    await userController.googleRegister(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "A Google account with this email already exists. Please login.",
+    });
+  });
+
+  test("googleRegister - success => 201", async () => {
     const req: any = { body: { idToken: "google-token" } };
     const res = mockRes();
 
@@ -497,8 +666,9 @@ describe("UserController unit tests", () => {
     jest.spyOn(auth, "generateAccessToken").mockReturnValue("access123");
     jest.spyOn(auth, "generateRefreshToken").mockReturnValue("refresh123");
 
-    await userController.googleLogin(req, res);
+    await userController.googleRegister(req, res);
 
+    expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         _id: "u1",
@@ -510,61 +680,17 @@ describe("UserController unit tests", () => {
     expect(save).toHaveBeenCalled();
   });
 
-  test("googleLogin - existing user gets updated => 200", async () => {
-    const req: any = { body: { idToken: "google-token" } };
-    const res = mockRes();
-
-    mockVerifyIdToken.mockResolvedValue({
-      getPayload: () => ({
-        email: "existing@mail.com",
-        sub: "google-sub-2",
-        picture: "http://img2",
-      }),
-    });
-
-    const existingUser: any = {
-      _id: "u2",
-      username: "existing",
-      email: "existing@mail.com",
-      authProvider: undefined,
-      providerId: undefined,
-      profileImage: undefined,
-      createdAt: new Date("2026-01-01"),
-      updatedAt: new Date("2026-01-01"),
-      refreshTokens: [],
-      save: jest.fn().mockResolvedValue(undefined),
-    };
-
-    jest.spyOn(User, "findOne").mockResolvedValue(existingUser);
-    jest.spyOn(auth, "generateAccessToken").mockReturnValue("accessABC");
-    jest.spyOn(auth, "generateRefreshToken").mockReturnValue("refreshABC");
-
-    await userController.googleLogin(req, res);
-
-    expect(existingUser.authProvider).toBe("google");
-    expect(existingUser.providerId).toBe("google-sub-2");
-    expect(existingUser.profileImage).toBe("http://img2");
-    expect(existingUser.save).toHaveBeenCalledTimes(2);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        _id: "u2",
-        accessToken: "accessABC",
-        refreshToken: "refreshABC",
-      }),
-    );
-  });
-
-  test("googleLogin - error => 401", async () => {
+  test("googleRegister - error => 401", async () => {
     const req: any = { body: { idToken: "google-token" } };
     const res = mockRes();
 
     mockVerifyIdToken.mockRejectedValue(new Error("boom"));
 
-    await userController.googleLogin(req, res);
+    await userController.googleRegister(req, res);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
-      error: "Google authentication failed",
+      error: "Google registration failed",
     });
   });
 
