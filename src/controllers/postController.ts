@@ -60,6 +60,149 @@ class PostController extends BaseController {
     };
   }
 
+  async searchPosts(req: Request, res: Response) {
+    try {
+      const details: Record<string, string> = {};
+      const rawQuery = req.body?.query;
+      const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
+
+      if (!query) {
+        details.query = "query is required";
+      } else if (query.length > 500) {
+        details.query = "query must be at most 500 characters";
+      }
+
+      const rawPage = req.body?.page;
+      const rawLimit = req.body?.limit;
+
+      const page =
+        rawPage === undefined ? 1 : Number.isInteger(rawPage) ? rawPage : NaN;
+      const limit =
+        rawLimit === undefined
+          ? 20
+          : Number.isInteger(rawLimit)
+            ? rawLimit
+            : NaN;
+
+      if (!Number.isInteger(page) || page < 1) {
+        details.page = "page must be an integer greater than or equal to 1";
+      }
+
+      if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+        details.limit = "limit must be between 1 and 50";
+      }
+
+      const filters =
+        req.body?.filters && typeof req.body.filters === "object"
+          ? req.body.filters
+          : {};
+
+      const createdBy =
+        typeof filters.createdBy === "string" && filters.createdBy.trim()
+          ? filters.createdBy.trim()
+          : undefined;
+
+      const dateFrom =
+        typeof filters.dateFrom === "string"
+          ? new Date(filters.dateFrom)
+          : undefined;
+      const dateTo =
+        typeof filters.dateTo === "string"
+          ? new Date(filters.dateTo)
+          : undefined;
+
+      if (dateFrom && Number.isNaN(dateFrom.getTime())) {
+        details.dateFrom = "dateFrom must be a valid ISO date";
+      }
+
+      if (dateTo && Number.isNaN(dateTo.getTime())) {
+        details.dateTo = "dateTo must be a valid ISO date";
+      }
+
+      if (
+        dateFrom &&
+        dateTo &&
+        !Number.isNaN(dateFrom.getTime()) &&
+        !Number.isNaN(dateTo.getTime()) &&
+        dateFrom > dateTo
+      ) {
+        details.dateRange = "dateFrom must be earlier than or equal to dateTo";
+      }
+
+      if (Object.keys(details).length > 0) {
+        return res.status(400).json({ error: "Invalid request", details });
+      }
+
+      const sort = req.body?.sort === "newest" ? "newest" : "relevance";
+
+      const regex = new RegExp(
+        query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i",
+      );
+
+      const filter: Record<string, unknown> = {
+        $or: [{ title: regex }, { content: regex }],
+      };
+
+      if (createdBy) {
+        filter.createdBy = createdBy;
+      }
+
+      if (dateFrom || dateTo) {
+        filter.createdAt = {
+          ...(dateFrom ? { $gte: dateFrom } : {}),
+          ...(dateTo ? { $lte: dateTo } : {}),
+        };
+      }
+
+      const sortSpec = { createdAt: -1 };
+      const skip = (page - 1) * limit;
+
+      const [posts, total] = await Promise.all([
+        this.model.find(filter).sort(sortSpec).skip(skip).limit(limit),
+        this.model.countDocuments(filter),
+      ]);
+
+      const postIds = posts.map((post: IPost & { id: string }) => post.id);
+      const likesByPostId = await this.buildLikesMap(postIds);
+
+      const items = posts.map((post: IPost & { id: string } & any) => ({
+        ...this.serializePost(post, likesByPostId.get(post.id) ?? []),
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt,
+      }));
+
+      return res.json({
+        items,
+        page,
+        limit,
+        total,
+        hasMore: page * limit < total,
+        meta: {
+          fallbackUsed: true,
+          sortApplied: sort,
+          filtersApplied: {
+            ...(createdBy ? { createdBy } : {}),
+            ...(dateFrom ? { dateFrom: dateFrom.toISOString() } : {}),
+            ...(dateTo ? { dateTo: dateTo.toISOString() } : {}),
+          },
+          parsedIntent: {
+            keywords: query.split(/\s+/).filter(Boolean),
+            mustInclude: [],
+            exclude: [],
+            createdBy: createdBy ?? null,
+            dateFrom: dateFrom ? dateFrom.toISOString() : null,
+            dateTo: dateTo ? dateTo.toISOString() : null,
+            sortBy: sort,
+          },
+        },
+      });
+    } catch (err) {
+      console.error("Failed to search posts:", (err as Error).message);
+      return res.status(500).json({ error: "Failed to search posts" });
+    }
+  }
+
   async getAllPosts(req: Request, res: Response) {
     try {
       const posts = await this.model.find(req.query || {}).sort({

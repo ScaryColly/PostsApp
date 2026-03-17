@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import request from "supertest";
 import intApp from "../index";
+import { generateAccessToken } from "../middleware/auth";
 import { Comment } from "../models/Comment";
 import { Post } from "../models/Post";
 import { PostLike } from "../models/PostLike";
@@ -19,6 +20,7 @@ type PostSeed = {
 let app: Express;
 let postsData: PostSeed[] = [];
 let user1Id: string;
+let searchAccessToken: string;
 
 beforeAll(async () => {
   app = await intApp();
@@ -40,6 +42,7 @@ beforeAll(async () => {
   });
 
   user1Id = String(user1._id);
+  searchAccessToken = generateAccessToken(user1Id);
   const user2Id = String(user2._id);
 
   postsData = [
@@ -311,5 +314,85 @@ describe("Posts API", () => {
     expect(res.body[0].message).toBe("second");
     expect(res.body[1].message).toBe("first");
     expect(String(res.body[0].createdBy)).toBe(user1Id);
+  });
+
+  describe("POST /posts/search", () => {
+    test("rejects unauthenticated request with 401", async () => {
+      const res = await request(app)
+        .post("/posts/search")
+        .send({ query: "post" });
+
+      expect(res.statusCode).toBe(401);
+    });
+
+    test("rejects missing query with 400 and details", async () => {
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({});
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe("Invalid request");
+      expect(res.body.details).toBeDefined();
+      expect(typeof res.body.details.query).toBe("string");
+    });
+
+    test("rejects whitespace-only query with 400", async () => {
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({ query: "    " });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe("Invalid request");
+      expect(res.body.details).toBeDefined();
+      expect(typeof res.body.details.query).toBe("string");
+    });
+
+    test("applies default page and limit and returns stable response shape", async () => {
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({ query: "post" });
+
+      expect(res.statusCode).toBe(200);
+      expect(Array.isArray(res.body.items)).toBe(true);
+      expect(res.body.page).toBe(1);
+      expect(res.body.limit).toBe(20);
+      expect(typeof res.body.total).toBe("number");
+      expect(typeof res.body.hasMore).toBe("boolean");
+      expect(res.body.meta).toBeDefined();
+      expect(typeof res.body.meta.fallbackUsed).toBe("boolean");
+    });
+
+    test("rejects limit out of range with 400", async () => {
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({ query: "post", limit: 0 });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe("Invalid request");
+      expect(res.body.details).toBeDefined();
+      expect(typeof res.body.details.limit).toBe("string");
+    });
+
+    test("rejects invalid date range when dateFrom is after dateTo", async () => {
+      const res = await request(app)
+        .post("/posts/search")
+        .set("Authorization", `Bearer ${searchAccessToken}`)
+        .send({
+          query: "post",
+          filters: {
+            dateFrom: "2026-03-17T23:59:59.999Z",
+            dateTo: "2026-03-01T00:00:00.000Z",
+          },
+        });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe("Invalid request");
+      expect(res.body.details).toBeDefined();
+      expect(typeof res.body.details.dateRange).toBe("string");
+    });
   });
 });
