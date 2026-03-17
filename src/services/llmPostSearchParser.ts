@@ -140,6 +140,10 @@ export const parseSearchIntentWithLlm = async (
     "Convert the user's free-text post search query to strict JSON.",
     "Return only a JSON object with keys:",
     "keywords (string[]), mustInclude (string[]), exclude (string[]), createdBy (string|null), dateFrom (ISO string|null), dateTo (ISO string|null), sortBy ('relevance'|'newest').",
+    "keywords must include semantic expansions and close domain terms that may appear in matching posts.",
+    "Use the same language as the user query and avoid filler/stop words.",
+    "For broad intent queries (for example 'posts related to anatomy'), include likely concrete anatomy terms (for example hand, digestive system, organs, bones) when relevant.",
+    "Keep keywords concise and useful for retrieval (typically 3-8 terms).",
     "Do not include Mongo operators or any extra keys.",
     `User query: ${query}`,
   ].join("\n");
