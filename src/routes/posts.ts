@@ -47,7 +47,7 @@ router.get("/", postController.getPosts.bind(postController));
  * /posts/search:
  *   post:
  *     summary: Search posts using free-text query
- *     description: Performs free-text search with pagination and optional filters.
+ *     description: Performs free-text search with pagination. Relative date phrases such as "all posts from yesterday" are interpreted against post createdAt.
  *     tags: [Posts]
  *     security:
  *       - BearerAuth: []
@@ -61,27 +61,13 @@ router.get("/", postController.getPosts.bind(postController));
  *             properties:
  *               query:
  *                 type: string
- *                 example: "docker build error"
+ *                 example: "all posts from yesterday"
  *               page:
  *                 type: integer
  *                 example: 1
  *               limit:
  *                 type: integer
  *                 example: 20
- *               sort:
- *                 type: string
- *                 enum: [relevance, newest]
- *               filters:
- *                 type: object
- *                 properties:
- *                   createdBy:
- *                     type: string
- *                   dateFrom:
- *                     type: string
- *                     format: date-time
- *                   dateTo:
- *                     type: string
- *                     format: date-time
  *     responses:
  *       200:
  *         description: Search results

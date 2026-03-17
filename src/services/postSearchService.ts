@@ -12,6 +12,7 @@ export type SearchRequestBody = {
   sort?: unknown;
   filters?: {
     createdBy?: unknown;
+    createdAt?: unknown;
     dateFrom?: unknown;
     dateTo?: unknown;
     [key: string]: unknown;
@@ -67,7 +68,6 @@ export type SearchPostsResult = {
     image: string | null;
     likes: string[];
     createdAt?: Date;
-    updatedAt?: Date;
   }>;
   page: number;
   limit: number;
@@ -78,16 +78,14 @@ export type SearchPostsResult = {
     sortApplied: "relevance" | "newest";
     filtersApplied: {
       createdBy?: string;
-      dateFrom?: string;
-      dateTo?: string;
+      createdAt?: string;
     };
     parsedIntent: {
       keywords: string[];
       mustInclude: string[];
       exclude: string[];
       createdBy: string | null;
-      dateFrom: string | null;
-      dateTo: string | null;
+      createdAt: string | null;
       sortBy: "relevance" | "newest";
     };
   };
@@ -125,6 +123,7 @@ const HEBREW_PREFIXES = new Set(["ו", "ב", "ל", "כ", "מ", "ה", "ש"]);
 
 const SEMANTIC_CANDIDATE_LIMIT = 200;
 const SEMANTIC_MIN_SIMILARITY = 0.18;
+const SEMANTIC_SOFT_FALLBACK_LIMIT = 10;
 
 const normalizeHebrewToken = (token: string): string => {
   let normalized = token;
@@ -194,6 +193,247 @@ const extractFallbackKeywords = (query: string): string[] => {
   return unique.length > 0 ? unique : query.split(/\s+/).filter(Boolean);
 };
 
+const startOfUtcDay = (date: Date): Date =>
+  new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+
+const addUtcDays = (date: Date, days: number): Date => {
+  const nextDate = new Date(date);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  return nextDate;
+};
+
+const MONTH_NAME_TO_INDEX: Record<string, number> = {
+  ינואר: 0,
+  פברואר: 1,
+  מרץ: 2,
+  אפריל: 3,
+  מאי: 4,
+  יוני: 5,
+  יולי: 6,
+  אוגוסט: 7,
+  ספטמבר: 8,
+  אוקטובר: 9,
+  נובמבר: 10,
+  דצמבר: 11,
+  january: 0,
+  february: 1,
+  march: 2,
+  april: 3,
+  may: 4,
+  june: 5,
+  july: 6,
+  august: 7,
+  september: 8,
+  october: 9,
+  november: 10,
+  december: 11,
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+};
+
+const normalizeDateToken = (token: string): string =>
+  token
+    .toLowerCase()
+    .replace(/[.,/\\-]/g, "")
+    .replace(/^ב/, "")
+    .trim();
+
+const parseExplicitDayMonth = (query: string): string | null => {
+  const normalized = query
+    .toLowerCase()
+    .replace(/["'`]/g, "")
+    .replace(/[^\p{L}\p{N}\s./-]/gu, " ")
+    .trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const tokens = normalized
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  for (let i = 0; i < tokens.length - 1; i += 1) {
+    const dayMatch = tokens[i].match(/^ב?(\d{1,2})$/);
+    if (!dayMatch) {
+      continue;
+    }
+
+    const day = Number(dayMatch[1]);
+    if (!Number.isInteger(day) || day < 1 || day > 31) {
+      continue;
+    }
+
+    const monthToken = normalizeDateToken(tokens[i + 1]);
+    const monthTokenNormalizedHebrew = normalizeHebrewToken(monthToken);
+    const monthIndex =
+      MONTH_NAME_TO_INDEX[monthToken] ??
+      MONTH_NAME_TO_INDEX[monthTokenNormalizedHebrew];
+
+    if (monthIndex === undefined) {
+      continue;
+    }
+
+    const year = new Date().getUTCFullYear();
+    const date = new Date(Date.UTC(year, monthIndex, day));
+
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== monthIndex ||
+      date.getUTCDate() !== day
+    ) {
+      continue;
+    }
+
+    return date.toISOString();
+  }
+
+  return null;
+};
+
+const extractFallbackCreatedAt = (query: string): string | null => {
+  const normalizedQuery = query.toLowerCase();
+  const now = new Date();
+
+  if (/\byesterday\b/.test(normalizedQuery) || query.includes("אתמול")) {
+    return startOfUtcDay(addUtcDays(now, -1)).toISOString();
+  }
+
+  if (/\btoday\b/.test(normalizedQuery) || query.includes("היום")) {
+    return startOfUtcDay(now).toISOString();
+  }
+
+  const explicitDay = parseExplicitDayMonth(query);
+  if (explicitDay) {
+    return explicitDay;
+  }
+
+  return null;
+};
+
+const buildCreatedAtDayFilter = (createdAt: string) => {
+  const day = startOfUtcDay(new Date(createdAt));
+  const nextDay = addUtcDays(day, 1);
+
+  return {
+    $gte: day,
+    $lt: nextDay,
+  };
+};
+
+const DATE_ONLY_TERMS = new Set([
+  "today",
+  "yesterday",
+  "published",
+  "publish",
+  "posted",
+  "post",
+  "posts",
+  "todays",
+  "what",
+  "was",
+  "were",
+  "all",
+  "מה",
+  "כל",
+  "פוסטים",
+  "הפוסטים",
+  "שפורסם",
+  "פורסם",
+  "שפורסמו",
+  "פורסמו",
+  "שפורסמת",
+  "פורסמת",
+  "היום",
+  "יום",
+  "אתמול",
+  "מהפורסם",
+]);
+
+const isDateOnlyQuery = (query: string): boolean => {
+  const normalized = query
+    .toLowerCase()
+    .replace(/["'`]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  const rawTokens = normalized
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  const normalizedTokens = rawTokens.map((token) =>
+    normalizeHebrewToken(token),
+  );
+
+  if (rawTokens.length === 0) {
+    return false;
+  }
+
+  const explicitDay = parseExplicitDayMonth(query);
+
+  const hasTemporalDay =
+    rawTokens.some(
+      (token) =>
+        token === "today" ||
+        token === "yesterday" ||
+        token === "היום" ||
+        token === "אתמול",
+    ) ||
+    normalizedTokens.some(
+      (token) =>
+        token === "today" ||
+        token === "yesterday" ||
+        token === "יום" ||
+        token === "אתמול",
+    ) ||
+    explicitDay !== null;
+
+  const isDayNumberToken = (token: string): boolean => {
+    const matched = token.match(/^ב?(\d{1,2})$/);
+    if (!matched) {
+      return false;
+    }
+
+    const day = Number(matched[1]);
+    return Number.isInteger(day) && day >= 1 && day <= 31;
+  };
+
+  const isMonthToken = (token: string, normalizedToken: string): boolean => {
+    const cleanToken = normalizeDateToken(token);
+    return (
+      MONTH_NAME_TO_INDEX[cleanToken] !== undefined ||
+      MONTH_NAME_TO_INDEX[normalizedToken] !== undefined
+    );
+  };
+
+  const allDateOnlyTerms = rawTokens.every(
+    (token, index) =>
+      DATE_ONLY_TERMS.has(token) ||
+      DATE_ONLY_TERMS.has(normalizedTokens[index]) ||
+      isDayNumberToken(token) ||
+      isMonthToken(token, normalizedTokens[index]),
+  );
+
+  return hasTemporalDay && allDateOnlyTerms;
+};
+
 const dot = (a: number[], b: number[]): number => {
   let sum = 0;
   for (let i = 0; i < a.length; i += 1) {
@@ -261,9 +501,10 @@ const embedTextsWithOpenAi = async (texts: string[]): Promise<number[][]> => {
 const semanticFallbackSearch = async (
   query: string,
   deps: SearchDependencies,
+  filter: Record<string, unknown> = {},
 ): Promise<Array<IPost & { id: string } & any>> => {
   const candidates = await deps.model
-    .find({})
+    .find(filter)
     .sort({ createdAt: -1 })
     .skip(0)
     .limit(SEMANTIC_CANDIDATE_LIMIT);
@@ -282,10 +523,21 @@ const semanticFallbackSearch = async (
       post,
       score: cosineSimilarity(queryVector, vectors[index + 1] ?? []),
     }))
-    .filter((item) => item.score >= SEMANTIC_MIN_SIMILARITY)
     .sort((a, b) => b.score - a.score);
 
-  return scored.map((item) => item.post);
+  const strictMatches = scored.filter(
+    (item) => item.score >= SEMANTIC_MIN_SIMILARITY,
+  );
+
+  if (strictMatches.length > 0) {
+    return strictMatches.map((item) => item.post);
+  }
+
+  // If strict semantic similarity yields no matches, return top positive-scored candidates.
+  return scored
+    .filter((item) => item.score > 0)
+    .slice(0, SEMANTIC_SOFT_FALLBACK_LIMIT)
+    .map((item) => item.post);
 };
 
 export const parseAndValidateSearchInput = (
@@ -343,8 +595,7 @@ export const searchPosts = async (
     mustInclude: [],
     exclude: [],
     createdBy: null,
-    dateFrom: null,
-    dateTo: null,
+    createdAt: extractFallbackCreatedAt(parsed.query),
     sortBy: "relevance",
   };
 
@@ -363,10 +614,17 @@ export const searchPosts = async (
   finalIntent = {
     ...finalIntent,
     createdBy: null,
-    dateFrom: null,
-    dateTo: null,
     sortBy: "relevance",
   };
+
+  if (finalIntent.createdAt && isDateOnlyQuery(parsed.query)) {
+    finalIntent = {
+      ...finalIntent,
+      keywords: [],
+      mustInclude: [],
+      exclude: [],
+    };
+  }
 
   const expandedKeywords = expandTermVariants(finalIntent.keywords);
   const expandedMustInclude = expandTermVariants(finalIntent.mustInclude);
@@ -405,6 +663,10 @@ export const searchPosts = async (
     });
   }
 
+  if (finalIntent.createdAt) {
+    filter.createdAt = buildCreatedAtDayFilter(finalIntent.createdAt);
+  }
+
   const skip = (parsed.page - 1) * parsed.limit;
   const sortSpec = { createdAt: -1 as const };
 
@@ -415,7 +677,13 @@ export const searchPosts = async (
 
   if (total === 0) {
     try {
-      const semanticPosts = await semanticFallbackSearch(parsed.query, deps);
+      const semanticPosts = await semanticFallbackSearch(
+        parsed.query,
+        deps,
+        finalIntent.createdAt
+          ? { createdAt: buildCreatedAtDayFilter(finalIntent.createdAt) }
+          : {},
+      );
       total = semanticPosts.length;
       posts = semanticPosts.slice(skip, skip + parsed.limit);
     } catch {
@@ -429,8 +697,13 @@ export const searchPosts = async (
   const items = posts.map((post) => ({
     ...deps.serializePost(post, likesByPostId.get(post.id) ?? []),
     createdAt: post.createdAt,
-    updatedAt: post.updatedAt,
   }));
+
+  const filtersApplied: SearchPostsResult["meta"]["filtersApplied"] = {};
+
+  if (finalIntent.createdAt) {
+    filtersApplied.createdAt = finalIntent.createdAt;
+  }
 
   return {
     items,
@@ -441,7 +714,7 @@ export const searchPosts = async (
     meta: {
       fallbackUsed,
       sortApplied: "relevance",
-      filtersApplied: {},
+      filtersApplied,
       parsedIntent: finalIntent,
     },
   };

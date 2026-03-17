@@ -1,6 +1,7 @@
 import postController from "../controllers/postController";
 import { Comment } from "../models/Comment";
 import { Post } from "../models/Post";
+import { PostLike } from "../models/PostLike";
 import * as postSearchService from "../services/postSearchService";
 
 const mockRes = () => {
@@ -43,6 +44,34 @@ describe("PostController unit tests", () => {
     expect(res.json).toHaveBeenCalledWith({
       error: "תקלה בשליפת הפוסט לפי ID",
     });
+  });
+
+  test("getPostById - returns post payload with likes", async () => {
+    const req: any = { params: { postId: "abc" } };
+    const res = mockRes();
+
+    jest.spyOn(Post, "findById").mockResolvedValue({
+      id: "abc",
+      image: null,
+      toJSON: () => ({
+        _id: "abc",
+        title: "title",
+        content: "content",
+        createdBy: "u1",
+        createdAt: new Date("2026-03-17T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-17T01:00:00.000Z"),
+      }),
+    } as any);
+    jest.spyOn(PostLike, "find").mockReturnValue({
+      select: jest.fn().mockResolvedValue([]),
+    } as any);
+
+    await (postController as any).getPostById(req, res);
+
+    const payload = res.json.mock.calls[0][0];
+    expect(payload.createdAt).toEqual(new Date("2026-03-17T00:00:00.000Z"));
+    expect(payload.image).toBeNull();
+    expect(payload.likes).toEqual([]);
   });
 
   test("getCommentsByPost - error => 500", async () => {
@@ -166,6 +195,29 @@ describe("PostController unit tests", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Post not found" });
   });
 
+  test("deletePost - deletes related comments and likes => 200", async () => {
+    const req: any = { params: { postId: "x" } };
+    const res = mockRes();
+
+    jest.spyOn(Post, "findByIdAndDelete").mockResolvedValue({
+      _id: "x",
+      image: null,
+    } as any);
+    const deleteCommentsSpy = jest
+      .spyOn(Comment, "deleteMany")
+      .mockResolvedValue({ acknowledged: true, deletedCount: 2 } as any);
+    const deleteLikesSpy = jest
+      .spyOn(PostLike, "deleteMany")
+      .mockResolvedValue({ acknowledged: true, deletedCount: 1 } as any);
+
+    await (postController as any).deletePost(req, res);
+
+    expect(deleteCommentsSpy).toHaveBeenCalledWith({ postId: "x" });
+    expect(deleteLikesSpy).toHaveBeenCalledWith({ postId: "x" });
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({ ok: true });
+  });
+
   test("deletePost - error => 400", async () => {
     const req: any = { params: { postId: "x" } };
     const res = mockRes();
@@ -238,8 +290,7 @@ describe("PostController unit tests", () => {
           mustInclude: [],
           exclude: [],
           createdBy: null,
-          dateFrom: null,
-          dateTo: null,
+          createdAt: null,
           sortBy: "relevance",
         },
       },
