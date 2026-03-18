@@ -1,6 +1,25 @@
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 
+const normalizeBasePath = (basePath: string): string => {
+  const trimmed = basePath.trim();
+  if (!trimmed || trimmed === "/") {
+    return "";
+  }
+
+  const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.replace(/\/+$/, "");
+};
+
+const baseUrl = (process.env.BASE_URL || "http://localhost:3000").replace(
+  /\/+$/,
+  "",
+);
+const swaggerApiBasePath =
+  process.env.SWAGGER_API_BASE_PATH ??
+  (process.env.NODE_ENV === "production" ? "/api" : "");
+const apiBasePath = normalizeBasePath(swaggerApiBasePath);
+
 const options: swaggerJsdoc.Options = {
   definition: {
     openapi: "3.0.0",
@@ -11,8 +30,11 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: process.env.BASE_URL || "http://localhost:3000",
-        description: "Development server",
+        url: `${baseUrl}${apiBasePath}`,
+        description:
+          process.env.NODE_ENV === "production"
+            ? "Production API"
+            : "Development server",
       },
     ],
     components: {
