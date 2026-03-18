@@ -20,7 +20,42 @@ const options: swaggerJsdoc.Options = {
       },
     ],
     components: {
+      securitySchemes: {
+        BearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "JWT Authorization header using the Bearer scheme",
+        },
+      },
       schemas: {
+        User: {
+          type: "object",
+          required: ["username", "email"],
+          properties: {
+            _id: { type: "string", example: "69665a97012d745083da47e3" },
+            username: { type: "string", example: "john_doe", minLength: 3 },
+            email: { type: "string", example: "john@example.com" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        AuthResponse: {
+          type: "object",
+          properties: {
+            _id: { type: "string", example: "69665a97012d745083da47e3" },
+            username: { type: "string", example: "john_doe" },
+            email: { type: "string", example: "john@example.com" },
+            accessToken: {
+              type: "string",
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            },
+            refreshToken: {
+              type: "string",
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            },
+          },
+        },
         Post: {
           type: "object",
           required: ["senderId", "title", "content"],

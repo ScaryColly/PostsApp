@@ -12,7 +12,7 @@ import postController from "../controllers/postController";
 
 /**
  * @swagger
- * /post:
+ * /posts:
  *   get:
  *     summary: Get all posts (or filter by sender)
  *     description: Retrieve all posts. If sender query exists, returns only posts for that sender.
@@ -42,7 +42,7 @@ router.get("/", postController.getPosts.bind(postController));
 
 /**
  * @swagger
- * /post/{postId}:
+ * /posts/{postId}:
  *   get:
  *     summary: Get post by ID
  *     description: Retrieve a specific post by its ID. No authentication required.
@@ -71,7 +71,7 @@ router.get("/:postId", postController.getPostById.bind(postController));
 
 /**
  * @swagger
- * /post/{postId}/comments:
+ * /posts/{postId}/comments:
  *   get:
  *     summary: Get comments for a post
  *     description: Retrieve comments by postId.
@@ -100,7 +100,7 @@ router.get("/:postId/comments", postController.getCommentsByPost.bind(postContro
 
 /**
  * @swagger
- * /post:
+ * /posts:
  *   post:
  *     summary: Create a new post
  *     description: Create a new post. No authentication required.
@@ -139,7 +139,7 @@ router.post("/", postController.createPost.bind(postController));
 
 /**
  * @swagger
- * /post/{postId}:
+ * /posts/{postId}:
  *   put:
  *     summary: Update a post
  *     description: Update an existing post by ID. No authentication required.
